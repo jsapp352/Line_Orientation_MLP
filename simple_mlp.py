@@ -1,8 +1,15 @@
 # Adapted from code by Milo Spencer-Harper
 # source: https://medium.com/technology-invention-and-more/how-to-build-a-multi-layered-neural-network-in-python-53ec3d1d326a
 
+import argparse
 import numpy as np
 from numpy import exp, array, random, dot, argmax
+
+parser = argparse.ArgumentParser(description='Train a multi-layer perceptron to detect the orientation of a line.')
+parser.add_argument('epochs', type=int,
+                    help='number of training epochs')
+
+_args = parser.parse_args()
 
 # Source: https://medium.com/@awjuliani/simple-softmax-in-python-tutorial-d6b4c4ed5c16
 def softmax(z):
@@ -12,6 +19,8 @@ def softmax(z):
 
 class NeuronLayer():
     def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
+        self.neuron_count = number_of_neurons
+        self.inputs_per_neuron = number_of_inputs_per_neuron
         self.synaptic_weights = 2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1
 
 
@@ -74,11 +83,11 @@ class NeuralNetwork():
 
     # The neural network prints its weights
     def print_weights(self):
-        print("    Layer 0 (4 neurons, each with 4 inputs): ")
+        print(f"    Layer 0 ({layer0.neuron_count} neurons, each with {layer0.inputs_per_neuron} inputs): ")
         print(self.layer0.synaptic_weights)
-        print("    Layer 1 (4 neurons, each with 4 inputs): ")
+        print(f"    Layer 1 ({layer1.neuron_count} neurons, each with {layer1.inputs_per_neuron} inputs): ")
         print(self.layer1.synaptic_weights)
-        print("    Layer 2 (3 neurons, each with 4 inputs):")
+        print(f"    Layer 2 ({layer2.neuron_count} neurons, each with {layer2.inputs_per_neuron} inputs): ")
         print(self.layer2.synaptic_weights)
 
 if __name__ == "__main__":
@@ -87,8 +96,8 @@ if __name__ == "__main__":
     random.seed(1)
 
     # Create neuron layers (M neurons, each with N inputs)
-    layer0 = NeuronLayer(4, 4)
-    layer1 = NeuronLayer(4, 4)
+    layer0 = NeuronLayer(2, 4)
+    layer1 = NeuronLayer(4, 2)
     layer2 = NeuronLayer(3, 4)
 
     # Combine the layers to create a neural network
@@ -129,7 +138,7 @@ if __name__ == "__main__":
 
     # Train the neural network using the training set.
     # Do it 60,000 times and make small adjustments each time.
-    neural_network.train(training_set_inputs, training_set_outputs, 60000)
+    neural_network.train(training_set_inputs, training_set_outputs, _args.epochs)
 
     print("Stage 2) New synaptic weights after training: ")
     neural_network.print_weights()
