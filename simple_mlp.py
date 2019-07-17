@@ -78,7 +78,7 @@ class NeuralNetwork():
         print(self.layer0.synaptic_weights)
         print("    Layer 1 (4 neurons, each with 4 inputs): ")
         print(self.layer1.synaptic_weights)
-        print("    Layer 2 (3 neurons, with 4 inputs):")
+        print("    Layer 2 (3 neurons, each with 4 inputs):")
         print(self.layer2.synaptic_weights)
 
 if __name__ == "__main__":
