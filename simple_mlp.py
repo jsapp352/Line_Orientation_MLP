@@ -2,14 +2,26 @@
 # source: https://medium.com/technology-invention-and-more/how-to-build-a-multi-layered-neural-network-in-python-53ec3d1d326a
 
 import argparse
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import exp, array, random, dot, argmax
+from pprint import pprint
 
 parser = argparse.ArgumentParser(description='Train a multi-layer perceptron to detect the orientation of a line.')
 parser.add_argument('epochs', type=int,
                     help='number of training epochs')
 
 _args = parser.parse_args()
+_validation_iterations = 100
+_validation_tick_interval = 10
+
+def plot_accuracy(accuracy_by_epoch):
+    epoch, accuracy = accuracy_by_epoch
+    plt.plot(epoch, accuracy)
+    plt.title('Prediction Accuracy by Training Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy (%)')
+    plt.show()
 
 # Source: https://medium.com/@awjuliani/simple-softmax-in-python-tutorial-d6b4c4ed5c16
 def softmax(z):
@@ -51,11 +63,18 @@ class NeuralNetwork():
     def train(self, training_set_inputs, training_set_outputs, number_of_training_iterations):
         layers = self.neuron_layers
 
+        accuracy_by_epoch = ([], [])
+
+        validation_iterations = _validation_iterations
+        validation_tick_interval = _validation_tick_interval
+        validation_data_indices = [random.randint(0, len(training_set_inputs)) for x in range(0, validation_iterations)]
+
+        last_layer_idx = len(layers) - 1
+
         for iteration in range(number_of_training_iterations):
             # Pass the training set through the neural network.
             output_from_layers = self.think(training_set_inputs)
 
-            last_layer_idx = len(neuron_layers) - 1
             deltas = {}
             errors = {}
 
@@ -90,6 +109,30 @@ class NeuralNetwork():
             for layer in layers:
                 layer.synaptic_weights += adjustments[layer]
 
+            # Validate results
+            if iteration % validation_tick_interval == 0:
+                accuracy_by_epoch[0].append(iteration)
+                accuracy_by_epoch[1].append(self.validate(
+                    training_set_inputs,
+                    training_set_outputs,
+                    validation_data_indices))
+
+        return accuracy_by_epoch
+
+    def validate(self, test_inputs, test_outputs, indices):
+        correct_predictions = 0
+
+        for index in indices:
+            outputs = neural_network.think(array(test_inputs[index]))
+            probabilities = softmax([outputs[-1]])
+            prediction = np.argmax(probabilities,axis=1)[0]
+
+            if test_outputs[index][prediction] == 1:
+                correct_predictions += 1.0
+
+        return correct_predictions / len(indices) * 100.0
+
+
     # The neural network thinks.
     def think(self, inputs):
         layers = self.neuron_layers
@@ -121,18 +164,6 @@ if __name__ == "__main__":
     #Seed the random number generator
     random.seed(1)
 
-    # Create neuron layers (M neurons, each with N inputs)
-    neuron_layers = [
-        NeuronLayer(2, 4),
-        NeuronLayer(4, 2),
-        NeuronLayer(3, 4)]
-
-    # Combine the layers to create a neural network
-    neural_network = NeuralNetwork(neuron_layers)
-
-    print("Stage 1) Random starting synaptic weights: ")
-    neural_network.print_weights()
-
     # The training set. We have 7 examples, each consisting of 3 input values
     # and 1 output value.
     training_set_inputs = array(
@@ -163,14 +194,26 @@ if __name__ == "__main__":
         2 : "Diagonal"
     }
 
-    # Train the neural network using the training set.
-    # Do it 60,000 times and make small adjustments each time.
-    neural_network.train(training_set_inputs, training_set_outputs, _args.epochs)
+    # Create neuron layers (M neurons, each with N inputs)
+    #  (M for layer x must equal N for layer x+1)
+    neuron_layers = [
+        NeuronLayer(2, 4),
+        NeuronLayer(4, 2),
+        NeuronLayer(3, 4)]
+
+    # Combine the layers to create a neural network
+    neural_network = NeuralNetwork(neuron_layers)
+
+    print("Stage 1) Random starting synaptic weights: ")
+    neural_network.print_weights()
+
+    # Train the neural network for a specified number of epochs using the training set.
+    accuracy_by_epoch = neural_network.train(training_set_inputs, training_set_outputs, _args.epochs)
 
     print("Stage 2) New synaptic weights after training: ")
     neural_network.print_weights()
 
-    # Test the neural network with a new situation.
+    plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
     for input_set in training_set_inputs:
