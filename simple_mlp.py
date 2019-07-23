@@ -7,13 +7,19 @@ import numpy as np
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-parser = argparse.ArgumentParser(description='Train a multi-layer perceptron to detect the orientation of a line.')
+parser = argparse.ArgumentParser(
+    description='Train a multi-layer perceptron to detect the orientation of a line.',
+    allow_abbrev=True)
+    
 parser.add_argument('epochs', type=int,
                     help='number of training epochs')
+parser.add_argument('-plot', action='store_true',
+                    help='show a plot of the accuracy data by epoch')
 
 _args = parser.parse_args()
 _validation_iterations = 100
 _validation_tick_interval = 10
+_max_weight = 10.0
 
 def plot_accuracy(accuracy_by_epoch):
     epoch, accuracy = accuracy_by_epoch
@@ -33,8 +39,15 @@ class NeuronLayer():
     def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
         self.neuron_count = number_of_neurons
         self.inputs_per_neuron = number_of_inputs_per_neuron
-        self.synaptic_weights = 2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1
+        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1)
 
+    def adjust_weights(self, adjustments):
+        max_weight = _max_weight
+
+        self.synaptic_weights += adjustments
+        abs_weights = np.abs(self.synaptic_weights)
+        if (abs_weights > max_weight).any():
+            self.synaptic_weights *= _max_weight / (abs_weights).max()
 
 class NeuralNetwork():
     def __init__(self, neuron_layers):
@@ -107,7 +120,7 @@ class NeuralNetwork():
 
             # Adjust the weights.
             for layer in layers:
-                layer.synaptic_weights += adjustments[layer]
+                layer.adjust_weights(adjustments[layer])
 
             # Validate results
             if iteration % validation_tick_interval == 0:
@@ -124,8 +137,8 @@ class NeuralNetwork():
 
         for index in indices:
             outputs = neural_network.think(array(test_inputs[index]))
-            probabilities = softmax([outputs[-1]])
-            prediction = np.argmax(probabilities,axis=1)[0]
+            # probabilities = softmax([outputs[-1]])
+            prediction = np.argmax([outputs[-1]],axis=1)[0]
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
@@ -213,17 +226,18 @@ if __name__ == "__main__":
     print("Stage 2) New synaptic weights after training: ")
     neural_network.print_weights()
 
-    plot_accuracy(accuracy_by_epoch)
+    if _args.plot:
+        plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
     for input_set in training_set_inputs:
         ticks = ["X" if x == 1 else " " for x in input_set]
 
         outputs = neural_network.think(array(input_set))
-        probs = softmax([outputs[-1]])
-        preds = np.argmax(probs,axis=1)
+        # probs = softmax([outputs[-1]])
+        preds = np.argmax([outputs[-1]],axis=1)
 
-        print(f"           _______________       Probabilities: {probs}")
+        print(f"           _______________       ")
         print(f"          |       |       |      Prediction: {prediction_labels[preds[0]]}")
         print("          |   {}   |   {}   |".format(ticks[0], ticks[1]))
         print("          |_______|_______|")
