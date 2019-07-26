@@ -10,21 +10,29 @@ from pprint import pprint
 parser = argparse.ArgumentParser(
     description='Train a multi-layer perceptron to detect the orientation of a line.',
     allow_abbrev=True)
-    
+
 parser.add_argument('epochs', type=int,
                     help='number of training epochs')
 parser.add_argument('-plot', action='store_true',
                     help='show a plot of the accuracy data by epoch')
+parser.add_argument('-noisy_activation', action='store_true',
+                    help='add simulated noise to the activation function')
 
 _args = parser.parse_args()
 _validation_iterations = 100
 _validation_tick_interval = 10
 _max_weight = 10.0
 
+# Standard deviation for activation noise
+_standard_deviation = 1.0
+
 def plot_accuracy(accuracy_by_epoch):
     epoch, accuracy = accuracy_by_epoch
     plt.plot(epoch, accuracy)
-    plt.title('Prediction Accuracy by Training Epoch')
+
+    noise_label = f' (activation noise standard dev. {_standard_deviation})' if _args.noisy_activation else ''
+    plt.title(f'Prediction Accuracy by Training Epoch{noise_label}')
+
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
     plt.show()
@@ -63,6 +71,9 @@ class NeuralNetwork():
     # We pass the weighted sum of the inputs through this function to
     # normalise them between 0 and 1.
     def sigmoid(self, x):
+        if _args.noisy_activation == True:
+            x += random.normal(0, _standard_deviation, x.shape)
+
         return 1 / (1 + exp(-x))
 
     # The derivative of the Sigmoid function.
@@ -210,9 +221,9 @@ if __name__ == "__main__":
     # Create neuron layers (M neurons, each with N inputs)
     #  (M for layer x must equal N for layer x+1)
     neuron_layers = [
-        NeuronLayer(2, 4),
-        NeuronLayer(4, 2),
-        NeuronLayer(3, 4)]
+        NeuronLayer(4, 4),
+        NeuronLayer(6, 4),
+        NeuronLayer(3, 6)]
 
     # Combine the layers to create a neural network
     neural_network = NeuralNetwork(neuron_layers)

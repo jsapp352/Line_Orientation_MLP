@@ -2,6 +2,8 @@
 # Summer 2019
 
 import argparse
+import numpy as np
+from numpy import array
 import random
 
 parser = argparse.ArgumentParser(description='Create a line-orientation dataset.')
@@ -33,19 +35,33 @@ _args = parser.parse_args()
 #
 # Each sample square will have two pixels of value 1 (on) and two pixels of value 0 (off).
 
+def analogify(data):
+    high_value_mean = 0.7
+    low_value_mean = 0.1
+    standard_deviation = 0.02
+
+    label, values = data
+
+    new_values = values * np.random.normal(high_value_mean, standard_deviation, values.shape)
+
+    new_values += np.logical_xor(values, 1) * np.random.normal(low_value_mean, standard_deviation, values.shape)
+
+    return (label, new_values)
+
+
 class squareGenerator():
     def __init__(self):
         self.squares = []
 
-        self.squares.append('V 1 0 1 0\n')
-        self.squares.append('V 0 1 0 1\n')
-        self.squares.append('H 1 1 0 0\n')
-        self.squares.append('H 0 0 1 1\n')
-        self.squares.append('D 1 0 0 1\n')
-        self.squares.append('D 1 0 0 1\n')
+        self.squares.append(('V', array([1, 0, 1, 0])))
+        self.squares.append(('V', array([0, 1, 0, 1])))
+        self.squares.append(('H', array([1, 1, 0, 0])))
+        self.squares.append(('H', array([0, 0, 1, 1])))
+        self.squares.append(('D', array([1, 0, 0, 1])))
+        self.squares.append(('D', array([1, 0, 0, 1])))
 
     def createList(self, length):
-        return [random.choice(self.squares) for x in range(1, length)]
+        return [analogify(random.choice(self.squares)) for x in range(1, length)]
 
 def main():
     dataset_size = _args.length
@@ -54,8 +70,21 @@ def main():
 
     dataset = square_generator.createList(dataset_size)
 
+    dataset_output = []
+
+    for label, values in dataset:
+        # line = f"{label}"
+
+        # for value in values:
+        #     line = f"{line}, {values}"
+        value_string = f"{values}"[1:-1]
+
+        line = f"{label} {value_string}\n"
+
+        dataset_output.append(line)
+
     with open(_args.filename, 'w') as f:
-        f.writelines(dataset)
+        f.writelines(dataset_output)
 
 if __name__ == '__main__':
     main()
