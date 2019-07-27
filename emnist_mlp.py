@@ -37,7 +37,7 @@ _max_weight = 10.0
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
 # Standard deviation for activation noise
-_standard_deviation = 0.15
+_standard_deviation = 0.45
 
 def plot_data_samples(X_train, y_labels, y_train, width):
     fig = plt.figure()
@@ -56,7 +56,8 @@ def plot_accuracy(accuracy_by_epoch):
     plt.plot(epoch, accuracy)
 
     noise_label = f' (activation noise standard dev. {_standard_deviation})' if _args.noisy_activation else ''
-    plt.title(f'Prediction Accuracy by Training Epoch{noise_label}')
+    batch_size_label = f'training batch size {_args.training_batch_size}'
+    plt.title(f'Prediction Accuracy by Training Epoch\n{noise_label}\n{batch_size_label}')
 
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
@@ -66,13 +67,13 @@ def plot_accuracy(accuracy_by_epoch):
 def softmax(z):
     z -= np.max(z)
     sm = (np.exp(z).T / np.sum(np.exp(z))).T
-    return sm
+    # return sm
 
 class NeuronLayer():
     def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
         self.neuron_count = number_of_neurons
         self.inputs_per_neuron = number_of_inputs_per_neuron
-        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1)
+        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / 10.0
 
     def adjust_weights(self, adjustments):
         max_weight = _max_weight
@@ -192,8 +193,11 @@ class NeuralNetwork():
 
         for index in indices:
             outputs = neural_network.think(array(test_inputs[index]))
+
+            # print([outputs[-1]])
             # probabilities = softmax([outputs[-1]])
             prediction = np.argmax([outputs[-1]],axis=1)[0]
+            # print(f"{prediction}: {test_outputs[index]}")
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
@@ -218,7 +222,7 @@ class NeuralNetwork():
             output_tensors.append(output)
             input_tensors.append(output)
 
-        output_tensors[-1] = softmax(output_tensors[-1])
+        # output_tensors[-1] = softmax(output_tensors[-1])
 
 
         return output_tensors
@@ -242,9 +246,8 @@ if __name__ == "__main__":
     training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width)
 
     prediction_labels = {
-        0 : "O",
-        1 : "X",
-        2 : "C"
+        0 : "X",
+        1 : "O"
     }
 
     # Create neuron layers (M neurons, each with N inputs)
@@ -273,7 +276,7 @@ if __name__ == "__main__":
     )
 
     print("Stage 2) New synaptic weights after training: ")
-    neural_network.print_weights()
+    # neural_network.print_weights()
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)
@@ -285,10 +288,17 @@ if __name__ == "__main__":
 
     sample_labels = [prediction_labels[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
 
-    sample_outputs = neural_network.think(sample_inputs)
+    sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
 
-    sample_preds = [prediction_labels[x] for x in np.argmax(sample_outputs, axis=2)[0]]
+    # print([x for x in sample_inputs])
+    # print(sample_outputs)
+    # print([prediction_labels[x] for x in np.argmax(sample_outputs, axis=1)])
 
+    sample_preds = [prediction_labels[x] for x in np.argmax(sample_outputs, axis=1)]
+    #
+    # print(sample_preds)
+    #
+    print(sample_outputs)
     plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
 
 

@@ -33,8 +33,14 @@ def load_data_pair(images_path, labels_path, width):
         ord('f')-ord('a')
     ]
 
-    indices = np.argwhere(Y == 15)
-    indices = np.append(indices, np.argwhere(Y == 24))
+    letter1 = 'x'
+    letter2 = 'o'
+
+    letter1 = ord(letter1) - ord('a') + 1
+    letter2 = ord(letter2) - ord('a') + 1
+
+    indices = np.argwhere(Y == letter1)
+    indices = np.append(indices, np.argwhere(Y == letter2))
 
     np.random.shuffle(indices)
 
@@ -44,8 +50,8 @@ def load_data_pair(images_path, labels_path, width):
     Y_ucf = Y[indices]
 
     one_hot_lookup = {
-        15 : np.array([1, 0]),
-        24 : np.array([0, 1])
+        letter1 : np.array([1, 0]),
+        letter2 : np.array([0, 1])
         }
 
     # one_hot_lookup = {
@@ -60,7 +66,7 @@ def load_data_pair(images_path, labels_path, width):
 
 
 def main():
-    width = 10
+    width = 8
 
     emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
