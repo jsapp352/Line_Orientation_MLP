@@ -7,24 +7,33 @@ import numpy as np
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
+
 parser = argparse.ArgumentParser(
     description='Train a multi-layer perceptron to detect the orientation of a line.',
     allow_abbrev=True)
 
 parser.add_argument('epochs', type=int,
                     help='number of training epochs')
+parser.add_argument('training_batch_size', type=int, nargs='?', default=10000,
+                    help='specify a maximum data-set size for training batch')
 parser.add_argument('-plot', action='store_true',
                     help='show a plot of the accuracy data by epoch')
 parser.add_argument('-noisy_activation', action='store_true',
                     help='add simulated noise to the activation function')
+parser.add_argument('-data_from_files', action='store_true',
+                    help='load training and validation data from text files')
 
 _args = parser.parse_args()
-_validation_iterations = 100
+
+_training_data_file = "training_set.txt"
+_validation_data_file = "validation_set.txt"
+
+_validation_iterations = 50
 _validation_tick_interval = 10
 _max_weight = 10.0
 
 # Standard deviation for activation noise
-_standard_deviation = 1.0
+_standard_deviation = 0.15
 
 def plot_accuracy(accuracy_by_epoch):
     epoch, accuracy = accuracy_by_epoch
@@ -84,18 +93,26 @@ class NeuralNetwork():
 
     # We train the neural network through a process of trial and error.
     # Adjusting the synaptic weights each time.
-    def train(self, training_set_inputs, training_set_outputs, number_of_training_iterations):
+    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations):
+        batch_size = _args.training_batch_size
         layers = self.neuron_layers
 
         accuracy_by_epoch = ([], [])
 
         validation_iterations = _validation_iterations
         validation_tick_interval = _validation_tick_interval
-        validation_data_indices = [random.randint(0, len(training_set_inputs)) for x in range(0, validation_iterations)]
+        validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
 
         last_layer_idx = len(layers) - 1
 
         for iteration in range(number_of_training_iterations):
+            # Shuffle the training set
+            data_set_size = training_set_inputs.shape[0]
+            indices = np.random.permutation(data_set_size)[0:batch_size]
+            print(indices)
+            training_set_inputs = training_set_inputs[indices]
+            training_set_outputs = training_set_outputs[indices]
+
             # Pass the training set through the neural network.
             output_from_layers = self.think(training_set_inputs)
 
@@ -137,8 +154,8 @@ class NeuralNetwork():
             if iteration % validation_tick_interval == 0:
                 accuracy_by_epoch[0].append(iteration)
                 accuracy_by_epoch[1].append(self.validate(
-                    training_set_inputs,
-                    training_set_outputs,
+                    validation_set_inputs,
+                    validation_set_outputs,
                     validation_data_indices))
 
         return accuracy_by_epoch
@@ -183,34 +200,70 @@ class NeuralNetwork():
             print(f"    Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs): ")
             print(layer.synaptic_weights)
 
+def load_data(filename):
+    output_dict = {
+        "V" : [1, 0, 0],
+        "H" : [0, 1, 0],
+        "D" : [0, 0, 1]
+    }
+
+    inputs = []
+    outputs = []
+
+    with open(filename, 'r') as f:
+        data_lines = f.readlines()
+
+        for line in data_lines:
+            data = line.split()
+
+            outputs.append(output_dict[data[0]])
+            inputs.append([float(x) for x in data[1:]])
+
+    #DEBUG
+    print(inputs[0])
+    print(outputs[0])
+
+    return array(inputs), array(outputs)
+
+
+
+
 if __name__ == "__main__":
 
     #Seed the random number generator
     random.seed(1)
 
-    # The training set. We have 7 examples, each consisting of 3 input values
-    # and 1 output value.
-    training_set_inputs = array(
-        [
-            [1, 0, 1, 0], #V
-            [0, 1, 0, 1], #V
-            [1, 1, 0, 0], #H
-            [0, 0, 1, 1], #H
-            [1, 0, 0, 1], #D
-            [0, 1, 1, 0]  #D
-        ]
-    )
+    if _args.data_from_files:
+        # Load training and validation data from files
+        training_set_inputs, training_set_outputs = load_data(_training_data_file)
+        validation_set_inputs, validation_set_outputs = load_data(_validation_data_file)
+    else:
+        # The standard training set. We have 7 examples, each consisting of 3 input values
+        # and 1 output value.
+        training_set_inputs = array(
+            [
+                [1, 0, 1, 0], #V
+                [0, 1, 0, 1], #V
+                [1, 1, 0, 0], #H
+                [0, 0, 1, 1], #H
+                [1, 0, 0, 1], #D
+                [0, 1, 1, 0]  #D
+            ]
+        )
 
-    training_set_outputs = array(
-        [
-            [1, 0, 0], #V
-            [1, 0, 0], #V
-            [0, 1, 0], #H
-            [0, 1, 0], #H
-            [0, 0, 1], #D
-            [0, 0, 1]  #D
-        ]
-    )
+        training_set_outputs = array(
+            [
+                [1, 0, 0], #V
+                [1, 0, 0], #V
+                [0, 1, 0], #H
+                [0, 1, 0], #H
+                [0, 0, 1], #D
+                [0, 0, 1]  #D
+            ]
+        )
+
+        # In this case, training data and validation data are the same
+        validation_set_inputs, validation_set_outputs = training_set_inputs, training_set_outputs
 
     prediction_labels = {
         0 : "Vertical",
@@ -221,9 +274,9 @@ if __name__ == "__main__":
     # Create neuron layers (M neurons, each with N inputs)
     #  (M for layer x must equal N for layer x+1)
     neuron_layers = [
-        NeuronLayer(4, 4),
-        NeuronLayer(6, 4),
-        NeuronLayer(3, 6)]
+        NeuronLayer(2, 4),
+        NeuronLayer(4, 2),
+        NeuronLayer(3, 4)]
 
     # Combine the layers to create a neural network
     neural_network = NeuralNetwork(neuron_layers)
@@ -232,7 +285,13 @@ if __name__ == "__main__":
     neural_network.print_weights()
 
     # Train the neural network for a specified number of epochs using the training set.
-    accuracy_by_epoch = neural_network.train(training_set_inputs, training_set_outputs, _args.epochs)
+    accuracy_by_epoch = neural_network.train(
+        training_set_inputs,
+        training_set_outputs,
+        validation_set_inputs,
+        validation_set_outputs,
+         _args.epochs
+    )
 
     print("Stage 2) New synaptic weights after training: ")
     neural_network.print_weights()
@@ -241,8 +300,8 @@ if __name__ == "__main__":
         plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
-    for input_set in training_set_inputs:
-        ticks = ["X" if x == 1 else " " for x in input_set]
+    for input_set in validation_set_inputs[0:5]:
+        ticks = ["X" if x > 0.5 else " " for x in input_set]
 
         outputs = neural_network.think(array(input_set))
         # probs = softmax([outputs[-1]])
