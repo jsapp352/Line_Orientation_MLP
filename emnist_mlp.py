@@ -3,6 +3,7 @@
 
 import argparse
 import emnist_loader
+import ltspice_mlp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -73,10 +74,12 @@ class NeuronLayer():
     def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
         self.neuron_count = number_of_neurons
         self.inputs_per_neuron = number_of_inputs_per_neuron
-        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / 10.0
+        self.max_weight = _max_weight
+
+        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / self.max_weight
 
     def adjust_weights(self, adjustments):
-        max_weight = _max_weight
+        max_weight = self.max_weight
 
         self.synaptic_weights += adjustments
         abs_weights = np.abs(self.synaptic_weights)
@@ -97,7 +100,7 @@ class NeuralNetwork():
         return 0.5 * x * (x > 0)
 
     def relu_derivative(self, x):
-        return 0.5 * (x > 0)
+        return 0.5 * (x > 30)
 
     # The Sigmoid function, which describes an S shaped curve.
     # We pass the weighted sum of the inputs through this function to
@@ -238,7 +241,7 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
     # Data image width (in pixels)
-    width = 10
+    width = 5
 
     #Seed the random number generator
     random.seed(1)
@@ -299,20 +302,9 @@ if __name__ == "__main__":
     # print(sample_preds)
     #
     print(sample_outputs)
-    plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
 
+    if _args.plot:
+        plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
 
-    # for input_set in validation_set_inputs[0:5]:
-    #     ticks = ["X" if x > 0.5 else " " for x in input_set]
-    #
-    #     outputs = neural_network.think(array(input_set))
-    #     # probs = softmax([outputs[-1]])
-    #     preds = np.argmax([outputs[-1]],axis=1)
-    #
-    #     print(f"           _______________       ")
-    #     print(f"          |       |       |      Prediction: {prediction_labels[preds[0]]}")
-    #     print("          |   {}   |   {}   |".format(ticks[0], ticks[1]))
-    #     print("          |_______|_______|")
-    #     print("          |       |       |")
-    #     print("          |   {}   |   {}   |".format(ticks[2], ticks[3]))
-    #     print("          |_______|_______|\n\n")
+    ckt = ltspice_mlp.MLP_Circuit(neural_network)
+    ckt.create_layer_subcircuit(neuron_layers[0], [0 for x in range(0, neuron_layers[0].inputs_per_neuron)], 0, _max_weight, 5000)
