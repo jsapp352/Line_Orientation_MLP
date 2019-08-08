@@ -89,13 +89,17 @@ class MLP_Circuit_Layer():
     def create_synapse_subcircuit(self, n_id, s_id, input, r_pos, r_neg):
         lines  = []
 
-        lines.append(f'XV_buff_{s_id} {input} buff_out_{s_id} V+ V- buff_out_{s_id} TL084')
-        lines.append(f'XV_buff`_{s_id} 0 buff`_inv_{s_id} V+ V- buff`_out_{s_id} TL084')
-        lines.append(f'R1_buff`_{s_id} {input} buff`_inv_{s_id} 100k')
-        lines.append(f'R2_buff`_{s_id} buff`_inv_{s_id} buff_out_{s_id} 100k')
+        # lines.append(f'XV_buff_{s_id} {input} buff_out_{s_id} V+ V- buff_out_{s_id} TL084')
+        # lines.append(f'XV_buff`_{s_id} 0 buff`_inv_{s_id} V+ V- buff`_out_{s_id} TL084')
+        # lines.append(f'R1_buff`_{s_id} {input} buff`_inv_{s_id} 100k')
+        # lines.append(f'R2_buff`_{s_id} buff`_inv_{s_id} buff_out_{s_id} 100k')
 
-        lines.append(f'R_in_{s_id} buff_out_{s_id} Input_{s_id} {r_pos}')
-        lines.append(f'R_in`_{s_id} buff`_out_{s_id} Input_{s_id} {r_neg}')
+        # lines.append(f'R_in_{s_id} buff_out_{s_id} Input_{s_id} {r_pos}')
+        # lines.append(f'R_in`_{s_id} buff`_out_{s_id} Input_{s_id} {r_neg}')
+        # lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_008 {self.r_total_ohms}')
+
+        lines.append(f'R_in_{s_id} {input} Input_{s_id} {r_pos}')
+        lines.append(f'R_in`_{s_id} {input}` Input_{s_id} {r_neg}')
         lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_008 {self.r_total_ohms}')
         lines.append('\n')
 
@@ -176,6 +180,7 @@ class MLP_Circuit():
         for idx,voltage in enumerate(self.input_sources):
             node = self.hardware_layers[0].input_nodes[idx]
             lines.append(f'V{i} {node} 0 {voltage}')
+            lines.append(f'V{i}` {node}` 0 {voltage * (-1)}')
             i += 1
 
         lines.append('\n')
