@@ -307,4 +307,4 @@ if __name__ == "__main__":
         plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
 
     ckt = ltspice_mlp.MLP_Circuit(neural_network)
-    ckt.create_layer_subcircuit(neuron_layers[0], [0 for x in range(0, neuron_layers[0].inputs_per_neuron)], 0, _max_weight, 5000)
+    ckt.create_netlist()
