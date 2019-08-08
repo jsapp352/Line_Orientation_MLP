@@ -307,4 +307,5 @@ if __name__ == "__main__":
         plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
 
     ckt = ltspice_mlp.MLP_Circuit(neural_network)
+    ckt.update_input_sources(sample_inputs[0])
     ckt.create_netlist()
