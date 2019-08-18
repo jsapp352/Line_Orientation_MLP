@@ -47,7 +47,8 @@ class MLP_Circuit_Layer():
         min_val = numpy.amin(self.neuron_layer.synaptic_weights)
         # print(f'min_val: {min_val}')
 
-        scale = 1 / (max(abs(max_val), abs(min_val)))  # scale weights to take up maximum pot. range
+        # Scale weights to take up maximum pot. range.
+        scale = 1 / (max(abs(max_val), abs(min_val)))
         # scale = 1 / self.max_weight
 
         scale *= 0.6
@@ -90,11 +91,10 @@ class MLP_Circuit_Layer():
     def create_neuron_subcircuit(self, n_id, output):
         lines = []
 
-        lines.append(f'XV2_{n_id} Neuron_{n_id}_008 Neuron_{n_id}_004 V+ V- Neuron_{n_id}_005 TL084')
-        lines.append(f'XV3_{n_id} 0 Neuron_{n_id}_001 V+ V- {output} TL084')
+        lines.append(f'X_Sum_{n_id} Neuron_{n_id}_008 Neuron_{n_id}_004 V+ V- Neuron_{n_id}_005 TL084')
+        lines.append(f'X_Activation_{n_id} 0 Neuron_{n_id}_001 V+ V- {output} TL084')
         lines.append(f'R**_{n_id} Neuron_{n_id}_005 Neuron_{n_id}_004 50k tol=5')
         lines.append(f'R4_{n_id} Neuron_{n_id}_001 Neuron_{n_id}_005 20k tol=5')
-        # lines.append(f'R6_{n_id} Input_{n_id}_008 Neuron_{n_id}_007 5k tol=5')
         lines.append(f'R8_{n_id} Neuron_{n_id}_003 Neuron_{n_id}_001 100k tol=5')
         lines.append(f'R9_{n_id} Neuron_{n_id}_003 {output} 3.3k tol=5')
         lines.append(f'R12_{n_id} Neuron_{n_id}_004 0 10k tol=5')
@@ -202,8 +202,8 @@ class MLP_Circuit():
     def create_footer(self):
         lines = []
         
-        lines.append('.tran 0 110p 100p')
-        lines.append('.option plotwinsize=0')
+        lines.append('.tran 0 100p')
+        lines.append('.options plotwinsize=0 trtol=7')
 
         # Skip N-R iterative solving
         lines.append('.options noopiter')
@@ -211,7 +211,6 @@ class MLP_Circuit():
         # Skip gmin stepping
         lines.append('.options gminsteps=0')
 
-        # lines.append('.op')
         lines.append('.end')
 
         lines.append('\n')
@@ -249,6 +248,7 @@ class MLP_Circuit():
             node = self.hardware_layers[0].input_nodes[idx]
             lines.append(f'V{i} {node} 0 {voltage} Rser=0.1')
             
+            # If input buffers are not included in the simulation, add voltage sources for inverted input values
             if not simulation_includes_input_buffers:
                 lines.append(f'V{i}` {node}` 0 {voltage * (-1)} Rser=0.1')
             i += 1
@@ -291,6 +291,7 @@ class MLP_Circuit():
                     pattern = re.compile(f'({node.lower()}\)\)\=)(-?\d+\.\d+)(\s)')
                     output_voltages.append(float(pattern.search(result)[2]))
 
+                #DEV Break this normalization formula out into its own function
                 outputs.append((numpy.asarray(output_voltages) + self.v_in_max) / (2 * self.v_in_max))
                 # pprint(outputs[-1])
 

@@ -160,8 +160,8 @@ class NeuralNetwork():
                 output = output_from_layers[i]
 
                 next_layer = layers[i+1]
-                next_layer_error = errors[next_layer]
-                next_layer_delta = deltas[next_layer]
+                # next_layer_error = errors[next_layer]
+                # next_layer_delta = deltas[next_layer]
 
                 errors[layer] = deltas[next_layer].dot(next_layer.synaptic_weights.T)
                 deltas[layer] = errors[layer] * self.activation_derivative(output)
