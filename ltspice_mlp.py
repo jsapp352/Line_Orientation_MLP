@@ -51,6 +51,7 @@ class MLP_Circuit_Layer():
         scale = 1 / (max(abs(max_val), abs(min_val)))
         # scale = 1 / self.max_weight
 
+        # Scale weights down a little bit.
         scale *= 0.6
 
         self.synapses_r_pos = (1 + self.neuron_layer.synaptic_weights * scale) / 2 * self.r_total_ohms

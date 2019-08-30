@@ -1,68 +1,67 @@
+# To do for emnist_loader:
+#  - Provide meta-data about number of characters in list
+#  - Provide meta-data about number of pixels in each sample image
+
 from matplotlib import pyplot as plt
 from mlxtend.data import loadlocal_mnist
 import numpy as np
 import os
 from scipy.ndimage import zoom
+from pprint import pprint
 
 def gen_image(arr, width):
     two_d = (np.reshape(arr, (width, width)) * 255).astype(np.uint8)
     plt.imshow(two_d, interpolation='nearest')
     return plt
 
-def load(emnist_path, width):
+# Load test and training data. "x" represents inputs, "y" represents outputs.
+def load(emnist_path, width, data_char_set = ['x', 'o']):
     training_x, training_y = load_data_pair(
         os.path.join(emnist_path,'emnist-letters-train-images-idx3-ubyte'),
         os.path.join(emnist_path,'emnist-letters-train-labels-idx1-ubyte'),
-        width
+        width,
+        data_char_set
     )
 
     test_x, test_y = load_data_pair(
         os.path.join(emnist_path,'emnist-letters-test-images-idx3-ubyte'),
         os.path.join(emnist_path,'emnist-letters-test-labels-idx1-ubyte'),
-        width
+        width,
+        data_char_set
     )
 
     return training_x, training_y, test_x, test_y
 
-def load_data_pair(images_path, labels_path, width):
+def load_data_pair(images_path, labels_path, width, data_char_set):
     X, Y = loadlocal_mnist(images_path, labels_path)
 
-    ucf_chars = [
-        ord('u')-ord('a'),
-        ord('c')-ord('a'),
-        ord('f')-ord('a')
-    ]
+    data_char_set_size = len(data_char_set)
 
-    letter1 = 'x'
-    letter2 = 'o'
+    data_char_indices = [ord(x) - ord('a') + 1 for x in data_char_set]
 
-    letter1 = ord(letter1) - ord('a') + 1
-    letter2 = ord(letter2) - ord('a') + 1
-
-    indices = np.argwhere(Y == letter1)
-    indices = np.append(indices, np.argwhere(Y == letter2))
+    # print(f'data_char_indices[0]: {data_char_indices[0]}')
+    indices = np.argwhere(Y == data_char_indices[0])    
+    for i in range(1, data_char_set_size):
+        # print(f'data_char_indices[{i}]: {data_char_indices[i]}')
+        indices = np.append(indices, np.argwhere(Y == data_char_indices[i]))
 
     np.random.shuffle(indices)
 
-    X_ucf_list = [(zoom(arr.reshape(28, 28), (width/28.0))).flatten() for arr in X[indices]]
-    X_ucf = np.array(X_ucf_list)
+    X_list = [(zoom(arr.reshape(28, 28), (width/28.0))).flatten() for arr in X[indices]]
+    X_chars = np.array(X_list)
 
-    Y_ucf = Y[indices]
+    Y_chars = Y[indices]
 
-    one_hot_lookup = {
-        letter1 : np.array([1, 0]),
-        letter2 : np.array([0, 1])
-        }
+    one_hot_lookup = {}
 
-    # one_hot_lookup = {
-    #     1 : np.array([1, 0, 0]),
-    #     2 : np.array([0, 1, 0]),
-    #     3 : np.array([0, 0, 1])
-    #     }
+    for i in range(0, data_char_set_size):
+        array = np.zeros(data_char_set_size, int).flatten()
+        array[i] = 1
+        one_hot_lookup[data_char_indices[i]] = array
 
-    Y_ucf_one_hot = np.array([one_hot_lookup[n] for n in Y_ucf])
+    Y_one_hot = np.array([one_hot_lookup[n] for n in Y_chars])
 
-    return X_ucf, Y_ucf_one_hot
+    return X_chars, Y_one_hot
 
 
 def main():
