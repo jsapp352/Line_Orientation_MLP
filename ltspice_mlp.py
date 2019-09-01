@@ -24,13 +24,16 @@ _ltspice_path = '"C:\\Program Files\\LTC\\LTspiceXVII\\XVIIx64.exe" -b '
 _simulation_includes_input_buffers = False
 
 class MLP_Circuit_Layer():
-    def __init__(self, neuron_layer, layer_number, r_total_ohms):
+    def __init__(self, neuron_layer, input_nodes, layer_number, r_total_ohms):
         self.neuron_layer = neuron_layer
         self.neuron_count = neuron_layer.neuron_count
         self.inputs_per_neuron = neuron_layer.inputs_per_neuron
 
-        self.input_nodes = [f'Synapse_{layer_number}_{x}_in' for x in range(0, self.inputs_per_neuron)] if layer_number == 0 else []
-        self.output_nodes = []
+        #DEBUG
+        # print(f'input nodes: {input_nodes}')
+
+        self.input_nodes = [f'Synapse_{layer_number}_{x}_in' for x in range(0, self.inputs_per_neuron)] if layer_number == 0 else input_nodes
+        self.output_nodes = [f'Neuron_{layer_number}_{x}_out' for x in range(0, self.neuron_count)]
 
         self.layer_number = layer_number
         self.r_total_ohms = r_total_ohms
@@ -61,29 +64,27 @@ class MLP_Circuit_Layer():
         self.synapses_r_neg = self.r_total_ohms - self.synapses_r_pos
     
     def create_layer_subcircuit(self):
-        outputs = []
         neuron_lines = []
         synapse_lines = []
         
         inputs = self.input_nodes
         
         for i in range(0, self.neuron_count):
-            n_id = f'{self.layer_number}_{i}'
-            output = f'Neuron_{n_id}_out'
-            outputs.append(output)
+            n_id = f'{self.layer_number}_{i}'            
 
-            neuron_lines += self.create_neuron_subcircuit(n_id, output)
+            neuron_lines += self.create_neuron_subcircuit(n_id, self.output_nodes[i])
 
             for j in range(0, self.inputs_per_neuron):
                 s_id = f'{n_id}_{j}'
                 r_pos = f'{self.synapses_r_pos[j][i]}'
                 r_neg = f'{self.synapses_r_neg[j][i]}'
+
+                #DEBUG
+                # print(f'j: {j}. inputs[j]: {inputs[j]}')
                 
                 input = inputs[j]
                 
-                synapse_lines += self.create_synapse_subcircuit(n_id, s_id, input, r_pos, r_neg)                
-
-        self.output_nodes = outputs
+                synapse_lines += self.create_synapse_subcircuit(n_id, s_id, input, r_pos, r_neg)
 
         lines = neuron_lines + synapse_lines
 
@@ -155,8 +156,12 @@ class MLP_Circuit():
         self.input_sources = []
     
     def initialize_hardware_layers(self):
+        input_nodes = None
+
         for idx,model_layer in enumerate(self.neural_network.neuron_layers):
-            self.hardware_layers.append(MLP_Circuit_Layer(model_layer, idx, self.r_total_ohms))
+            self.hardware_layers.append(MLP_Circuit_Layer(model_layer, input_nodes, idx, self.r_total_ohms))
+            print(f'Layer {idx} output nodes: {self.hardware_layers[idx].output_nodes}')
+            input_nodes = self.hardware_layers[idx].output_nodes
         
         for i in range(1, len(self.hardware_layers)):
             self.hardware_layers[i].input_nodes = self.hardware_layers[i-1].output_nodes

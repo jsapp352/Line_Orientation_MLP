@@ -39,10 +39,8 @@ def load_data_pair(images_path, labels_path, width, data_char_set):
 
     data_char_indices = [ord(x) - ord('a') + 1 for x in data_char_set]
 
-    # print(f'data_char_indices[0]: {data_char_indices[0]}')
     indices = np.argwhere(Y == data_char_indices[0])    
     for i in range(1, data_char_set_size):
-        # print(f'data_char_indices[{i}]: {data_char_indices[i]}')
         indices = np.append(indices, np.argwhere(Y == data_char_indices[i]))
 
     np.random.shuffle(indices)
