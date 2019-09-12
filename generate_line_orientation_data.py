@@ -36,8 +36,8 @@ _args = parser.parse_args()
 # Each sample square will have two pixels of value 1 (on) and two pixels of value 0 (off).
 
 def analogify(data):
-    high_value_mean = 0.75
-    low_value_mean = 0.25
+    high_value_mean = 0.9
+    low_value_mean = 0.1
     standard_deviation = 0.05
 
     label, values = data

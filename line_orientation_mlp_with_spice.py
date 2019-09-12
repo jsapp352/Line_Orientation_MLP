@@ -25,20 +25,28 @@ parser.add_argument('-noisy_activation', action='store_true',
                     help='add simulated noise to the activation function')
 parser.add_argument('-data_from_files', action='store_true',
                     help='load training and validation data from text files')
+parser.add_argument('-software_model', action='store_true',
+                    help='use a software-based neural network model (no SPICE simulation)')
+parser.add_argument('-activation_test', action='store_true',
+                    help='test a neuron\'s activation function')
+
 
 _args = parser.parse_args()
 
-# _training_data_file = "training_set.txt"
-# _validation_data_file = "validation_set.txt"
+_training_data_file = "training_set.txt"
+_validation_data_file = "validation_set.txt"
 
-_validation_iterations = 200
-_validation_tick_interval = 1
+_validate_by_software_model = False
+_validation_iterations = 16
+_validation_tick_interval = 2
+
 _max_weight = 10.0
+_learning_rate = 1.0
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
 # Standard deviation for activation noise
-_standard_deviation = 0.45
+_standard_deviation = 0.35
 
 def plot_data_samples(X_train, y_labels, y_train, width):
     fig = plt.figure()
@@ -64,6 +72,35 @@ def plot_accuracy(accuracy_by_epoch):
     plt.ylabel('Accuracy (%)')
     plt.show()
 
+def plot_activation(inputs, outputs):
+    plt.plot(inputs, outputs, '.')
+    plt.title(f'Activation Function based on {"software" if _args.software_model else "hardware"} model')
+    plt.xlabel('Input')
+    plt.ylabel('Output')
+    plt.show()
+
+def activation_test():
+    neuron_layers = [NeuronLayer(1,1)]
+    neural_network = NeuralNetwork(neuron_layers)
+    neural_network.neuron_layers[0].synaptic_weights[0][0] = neuron_layers[0].max_weight
+
+    input_start, input_end = (-5, 5)
+    sigmoid_start, sigmoid_end = (-1, 1)
+    non_sigmoid_tick_interval = 0.5
+    sigmoid_tick_interval = 0.05
+    points_per_sigmoid_tick = 1
+
+    inputs = np.linspace(input_start, input_end, int((input_end - input_start) / non_sigmoid_tick_interval))
+
+    for i in range (0, points_per_sigmoid_tick):
+        inputs = np.append(inputs, np.linspace(sigmoid_start, sigmoid_end, int((sigmoid_end-sigmoid_start) / sigmoid_tick_interval)))
+
+    input_tensors = np.asarray([np.atleast_1d(x) for x in inputs])
+
+    outputs = neural_network.think(array(input_tensors))
+
+    plot_activation(inputs, outputs[0])
+
 # Source: https://medium.com/@awjuliani/simple-softmax-in-python-tutorial-d6b4c4ed5c16
 def softmax(z):
     z -= np.max(z)
@@ -76,12 +113,12 @@ class NeuronLayer():
         self.inputs_per_neuron = number_of_inputs_per_neuron
         self.max_weight = _max_weight
         
-        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / self.max_weight
+        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 1.0
 
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
 
-        self.synaptic_weights += adjustments
+        self.synaptic_weights += adjustments * _learning_rate
         abs_weights = np.abs(self.synaptic_weights)
         if (abs_weights > max_weight).any():
             self.synaptic_weights *= _max_weight / (abs_weights).max()
@@ -99,10 +136,10 @@ class NeuralNetwork():
         return self.sigmoid_derivative(x)
 
     def relu(self, x):
-        return 0.5 * x * (x > 0)
+        return x * (x > 0)
 
     def relu_derivative(self, x):
-        return 0.5 * (x > 30)
+        return x > 0
 
     # The Sigmoid function, which describes an S shaped curve.
     # We pass the weighted sum of the inputs through this function to
@@ -126,7 +163,7 @@ class NeuralNetwork():
         layers = self.neuron_layers
 
         accuracy_by_epoch = ([], [])
-
+        
         validation_iterations = _validation_iterations
         validation_tick_interval = _validation_tick_interval
         validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
@@ -194,19 +231,16 @@ class NeuralNetwork():
         return accuracy_by_epoch
 
     def validate(self, test_inputs, test_outputs, indices):
+        
+        validate_by_software_model = _validate_by_software_model
+
         correct_predictions = 0
 
         for index in indices:
-            # print('\nValidation test_inputs[index]')
-            # pprint(test_inputs[index])
-            # print('\n')
-            # print('\nValidation array(test_inputs[index])')
-            # pprint(array(test_inputs[index]))
-            # print('\n')
-            # print('\nValidation array(test_inputs[index]).tolist()')
-            # pprint(array(test_inputs[index]).tolist())
-            # print('\n')
-            outputs = self.think(array([test_inputs[index]]))
+            if validate_by_software_model:
+                outputs = self.software_think(array([test_inputs[index]]))
+            else:
+                outputs = self.think(array([test_inputs[index]]))
 
             # print([outputs[-1]])
             # probabilities = softmax([outputs[-1]])
@@ -220,9 +254,15 @@ class NeuralNetwork():
 
         return correct_predictions / len(indices) * 100.0
 
+    def think(self, inputs):
+        use_software_model = _args.software_model
+        if use_software_model:
+            return self.software_think(inputs)
+        else:
+            return self.hardware_think(inputs)
 
     # The neural network thinks.
-    def think(self, inputs):
+    def hardware_think(self, inputs):
         # print('Think() inputs:')
         # pprint(inputs)
         # print('\n')
@@ -245,7 +285,7 @@ class NeuralNetwork():
         return [np.asarray(x) for x in output_tensors]
 
     #DEBUG
-    def old_think(self, inputs):
+    def software_think(self, inputs):
         layers = self.neuron_layers
 
         input_tensors = []
@@ -254,7 +294,7 @@ class NeuralNetwork():
         input_tensors.append(inputs)
 
         for i in range(0, len(layers)):
-            output = self.activation_function(dot(input_tensors[i], layers[i].synaptic_weights))
+            output = self.activation_function(dot(input_tensors[i] * 2 - 0.2, layers[i].synaptic_weights))
 
             output_tensors.append(output)
             input_tensors.append(output)
@@ -273,10 +313,39 @@ class NeuralNetwork():
             print(f"    Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs): ")
             print(layer.synaptic_weights)
 
+def load_data(filename):
+    output_dict = {
+        "V" : [1, 0, 0],
+        "H" : [0, 1, 0],
+        "D" : [0, 0, 1]
+    }
+
+    inputs = []
+    outputs = []
+
+    with open(filename, 'r') as f:
+        data_lines = f.readlines()
+
+        for line in data_lines:
+            data = line.split()
+
+            outputs.append(output_dict[data[0]])
+            inputs.append([float(x) for x in data[1:]])
+
+    #DEBUG
+    # print(inputs[0])
+    # print(outputs[0])
+
+    return array(inputs), array(outputs)
+
 if __name__ == "__main__":
 
     #Seed the random number generator
-    random.seed(1)
+    # random.seed(1)
+
+    if _args.activation_test:
+        activation_test()
+        exit()
 
     if _args.data_from_files:
         # Load training and validation data from files
@@ -319,9 +388,9 @@ if __name__ == "__main__":
     # Create neuron layers (M neurons, each with N inputs)
     #  (M for layer x must equal N for layer x+1)
     neuron_layers = [
-        NeuronLayer(2, 4),
-        NeuronLayer(4, 2),
-        NeuronLayer(3, 4)]
+        NeuronLayer(4, 4),
+        NeuronLayer(3, 4),
+        NeuronLayer(3, 3)]
 
     # Combine the layers to create a neural network
     neural_network = NeuralNetwork(neuron_layers)
@@ -348,12 +417,12 @@ if __name__ == "__main__":
     for input_set in validation_set_inputs[0:5]:
         ticks = ["X" if x > 0.5 else " " for x in input_set]
 
-        outputs = neural_network.think([array(input_set)])
+        outputs = neural_network.think(array([input_set]))
         # probs = softmax([outputs[-1]])
-        preds = np.argmax([outputs[-1]],axis=1)
+        preds = np.argmax([outputs[-1][0]],axis=1)
 
         print(f"           _______________       ")
-        print(f"          |       |       |      Prediction: {prediction_labels[preds[0][0]]}")
+        print(f"          |       |       |      Prediction: {prediction_labels[preds[0]]}")
         print("          |   {}   |   {}   |".format(ticks[0], ticks[1]))
         print("          |_______|_______|")
         print("          |       |       |")

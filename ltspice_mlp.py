@@ -10,8 +10,8 @@ from pprint import pprint
 _v_plus = 5
 _v_minus = -5
 
-_v_in_max = 1.5
-_v_in_min = -1.5
+_v_in_max = 2.0
+_v_in_min = -2.0
 
 _pot_tolerance = 0.20
 
@@ -52,14 +52,13 @@ class MLP_Circuit_Layer():
 
         # Scale weights to take up maximum pot. range.
         scale = 1 / (max(abs(max_val), abs(min_val)))
-        # scale = 1 / self.max_weight
 
         # Scale weights down a little bit.
-        scale *= 0.6
+        scale *= 0.8
 
-        self.synapses_r_pos = (1 + self.neuron_layer.synaptic_weights * scale) / 2 * self.r_total_ohms
+        
 
-        # self.synapses_r_pos = (1 + (self.neuron_layer.synaptic_weights / self.max_weight)) / 2 * self.r_total_ohms
+        self.synapses_r_pos = (self.neuron_layer.synaptic_weights / self.max_weight + 1) / 2 * self.r_total_ohms + 1
 
         self.synapses_r_neg = self.r_total_ohms - self.synapses_r_pos
     
@@ -95,15 +94,17 @@ class MLP_Circuit_Layer():
 
         lines.append(f'X_Sum_{n_id} Neuron_{n_id}_008 Neuron_{n_id}_004 V+ V- Neuron_{n_id}_005 TL084')
         lines.append(f'X_Activation_{n_id} 0 Neuron_{n_id}_001 V+ V- {output} TL084')
-        lines.append(f'R**_{n_id} Neuron_{n_id}_005 Neuron_{n_id}_004 50k tol=5')
+        lines.append(f'R**_{n_id} Neuron_{n_id}_005 Neuron_{n_id}_004 200k tol=5')
         lines.append(f'R4_{n_id} Neuron_{n_id}_001 Neuron_{n_id}_005 20k tol=5')
         lines.append(f'R8_{n_id} Neuron_{n_id}_003 Neuron_{n_id}_001 100k tol=5')
         lines.append(f'R9_{n_id} Neuron_{n_id}_003 {output} 3.3k tol=5')
-        lines.append(f'R12_{n_id} Neuron_{n_id}_004 0 10k tol=5')
+        lines.append(f'R12_{n_id} Neuron_{n_id}_008 0 10k tol=5')
         lines.append(f'D1_{n_id} Neuron_{n_id}_001 Neuron_{n_id}_002 1N4001')
         lines.append(f'D2_{n_id} Neuron_{n_id}_002 Neuron_{n_id}_003 1N4001')
         lines.append(f'D3_{n_id} Neuron_{n_id}_006 Neuron_{n_id}_001 1N4001')
         lines.append(f'D4_{n_id} Neuron_{n_id}_003 Neuron_{n_id}_006 1N4001')
+
+        lines.append(f'E_{n_id} {output}` 0 {output} 0 -1')
         lines.append('\n')
 
         return lines
@@ -121,11 +122,11 @@ class MLP_Circuit_Layer():
 
             lines.append(f'R_in_{s_id} buff_out_{s_id} Input_{s_id} {r_pos}')
             lines.append(f'R_in`_{s_id} buff`_out_{s_id} Input_{s_id} {r_neg}')
-            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_008 {self.r_total_ohms}')
+            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 20k')
         else:
             lines.append(f'R_in_{s_id} {input} Input_{s_id} {r_pos}')
             lines.append(f'R_in`_{s_id} {input}` Input_{s_id} {r_neg}')
-            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_008 {self.r_total_ohms}')
+            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 20K')
 
         lines.append('\n')
 
@@ -174,20 +175,11 @@ class MLP_Circuit():
 
         inputs = input_array.tolist()
 
-        # print('Update_input_sources() inputs.tolist():')
-        # pprint(inputs)
-        # print('\n')
-
-        # pprint(inputs)
-
-        min_input = min(inputs)
-        max_input = max(inputs)
-
-        input_range = abs(max_input - min_input)
         v_in_range = self.v_in_max - self.v_in_min
-        map_scale_factor = v_in_range / input_range
-        
-        map_input = lambda x: (x - min_input) * map_scale_factor + self.v_in_min
+
+        v_in_center = v_in_range / 2 + self.v_in_min
+            
+        map_input = lambda x: x * v_in_range / 2 + v_in_center
 
         self.input_sources = [map_input(x) for x in inputs]
 
@@ -208,7 +200,7 @@ class MLP_Circuit():
     def create_footer(self):
         lines = []
         
-        lines.append('.tran 0 100p')
+        lines.append('.tran 0 1000p')
         lines.append('.options plotwinsize=0 trtol=7')
 
         # Skip N-R iterative solving
@@ -233,6 +225,15 @@ class MLP_Circuit():
         for layer in self.hardware_layers:
             for node in layer.output_nodes:
                 lines.append(f'.measure V{node} avg V({node})')
+
+        #DEBUG
+        # lines.append('\n')
+        # for layer in self.hardware_layers:
+        #     for node in layer.output_nodes:
+        #         pattern = re.compile('(Neuron_\\d+_\\d+)')
+        #         activation_input_node = f'{pattern.search(node)[0]}_005'
+        #         lines.append(f'.save V({activation_input_node})')
+        #         lines.append(f'.measure V{activation_input_node} avg V({activation_input_node})')
         
         lines.append('\n')
 
@@ -294,15 +295,22 @@ class MLP_Circuit():
                 output_voltages = []
 
                 for node in layer.output_nodes:
-                    pattern = re.compile(f'({node.lower()}\)\)\=)(-?\d+\.\d+)(\s)')
-                    output_voltages.append(float(pattern.search(result)[2]))
+                    pattern = re.compile(
+                        f'({node.lower()}\)\)\=)(-?\d+\.?\d*e?-?\d*)(\s)')
+                    
+                    match = pattern.search(result)
+
+                    if match == None:
+                        return False, None
+
+                    output_voltages.append(float(match[2]))
 
                 #DEV Break this normalization formula out into its own function
                 outputs.append((numpy.asarray(output_voltages) + self.v_in_max) / (2 * self.v_in_max))
                 # pprint(outputs[-1])
 
         # pprint(numpy.asarray(outputs))
-        return numpy.asarray(outputs)
+        return True, numpy.asarray(outputs)
 
     def think(self, inputs):
         # print('Ckt.Think() inputs:')
@@ -318,9 +326,13 @@ class MLP_Circuit():
             layer.update_synapse_weights()
         
         self.create_netlist()
-        self.run_simulation()
         
-        outputs = self.get_outputs()
+        success = False
+        attempts = 5
+        while success == False and attempts > 0:
+            self.run_simulation()               
+            success, outputs = self.get_outputs()
+            attempts -= 1
 
         print(outputs)
 

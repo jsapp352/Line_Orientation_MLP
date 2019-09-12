@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 class LineOrientationDataset(Dataset):
     def __init__(self, data_file):
         self.samples = []
-        self.data_file = data_file;
+        self.data_file = data_file
         self._init_dataset()
 
     def __len__(self):
