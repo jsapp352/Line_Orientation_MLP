@@ -7,6 +7,7 @@ import ltspice_mlp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
@@ -80,9 +81,10 @@ def plot_activation(inputs, outputs):
     plt.show()
 
 def activation_test():
-    neuron_layers = [NeuronLayer(1,1)]
+    input_count = 3
+    neuron_layers = [NeuronLayer(1, input_count)]
     neural_network = NeuralNetwork(neuron_layers)
-    neural_network.neuron_layers[0].synaptic_weights[0][0] = neuron_layers[0].max_weight
+    neural_network.neuron_layers[0].synaptic_weights[0:input_count] = np.atleast_1d(neuron_layers[0].max_weight)
 
     input_start, input_end = (-5, 5)
     sigmoid_start, sigmoid_end = (-1, 1)
@@ -90,16 +92,16 @@ def activation_test():
     sigmoid_tick_interval = 0.05
     points_per_sigmoid_tick = 1
 
-    inputs = np.linspace(input_start, input_end, int((input_end - input_start) / non_sigmoid_tick_interval))
+    inputs = [np.linspace(input_start, input_end, int((input_end - input_start) / non_sigmoid_tick_interval)) for x in range(0, input_count)][0]
 
     for i in range (0, points_per_sigmoid_tick):
         inputs = np.append(inputs, np.linspace(sigmoid_start, sigmoid_end, int((sigmoid_end-sigmoid_start) / sigmoid_tick_interval)))
 
-    input_tensors = np.asarray([np.atleast_1d(x) for x in inputs])
+    input_tensors = [(x * np.ones((1, input_count)))[0] for x in inputs]
 
-    outputs = neural_network.think(array(input_tensors))
+    outputs = neural_network.think(array(input_tensors))[0]
 
-    plot_activation(inputs, outputs[0])
+    plot_activation(inputs, [output[0] for output in outputs])
 
 # Source: https://medium.com/@awjuliani/simple-softmax-in-python-tutorial-d6b4c4ed5c16
 def softmax(z):
@@ -108,12 +110,15 @@ def softmax(z):
     # return sm
 
 class NeuronLayer():
-    def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
+    def __init__(self, number_of_neurons, number_of_inputs_per_neuron, starting_weights=None):
         self.neuron_count = number_of_neurons
         self.inputs_per_neuron = number_of_inputs_per_neuron
         self.max_weight = _max_weight
         
-        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 1.0
+        if starting_weights is None:            
+            self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 1.0
+        else:
+            self.synaptic_weights = starting_weights
 
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
@@ -166,7 +171,10 @@ class NeuralNetwork():
         
         validation_iterations = _validation_iterations
         validation_tick_interval = _validation_tick_interval
-        validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
+        if _args.data_from_files:
+            validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
+        else:
+            validation_data_indices = [x for x in range(0, len(validation_set_inputs))]
 
         last_layer_idx = len(layers) - 1
 
@@ -307,11 +315,18 @@ class NeuralNetwork():
     # The neural network prints its weights
     def print_weights(self):
         layers = self.neuron_layers
+        lines = []
 
         for i in range(0, len(layers)):
             layer = layers[i]
-            print(f"    Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs): ")
-            print(layer.synaptic_weights)
+            lines.append(f'Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs):\n')
+            lines.append(f'{layer.synaptic_weights}\n')
+        
+        for x in lines:
+            print(x)
+        
+        with open('starting_weights.txt', 'w') as f:
+            f.writelines(lines)
 
 def load_data(filename):
     output_dict = {
@@ -341,11 +356,11 @@ def load_data(filename):
 if __name__ == "__main__":
 
     #Seed the random number generator
-    # random.seed(1)
+    # random.seed(2)
 
     if _args.activation_test:
         activation_test()
-        exit()
+        sys.exit(0)
 
     if _args.data_from_files:
         # Load training and validation data from files
@@ -385,12 +400,30 @@ if __name__ == "__main__":
         2 : "Diagonal"
     }
 
+    starting_weights = [
+        np.asarray(
+            [[ 0.78693466,  0.00260829, -0.52798853,  0.92084359],
+             [ 0.85578172,  0.50035073,  0.14404296, -0.03027512],
+             [-0.43132144, -0.26774606, -0.89238543, -0.86610821],
+             [ 0.87852929,  0.08643093, -0.51677491, -0.03856048]]),
+        np.asarray(            
+            [[-0.36415303,  0.40740717,  0.50542251, -0.59614972],
+             [ 0.59996569, -0.69599694, -0.74805606,  0.61728582],
+             [ 0.50074242, -0.85998174, -0.33990181, -0.50978041],
+             [-0.92183461,  0.90926905, -0.44542875, -0.09638122]]),
+        np.asarray(
+            [[-0.11044091, -0.67848051, -0.70275169],
+             [-0.65093601,  0.4998441,   0.95182468],
+             [-0.62298891, -0.00173666,  0.59165978],
+             [-0.72568407,  0.90145892,  0.39221916]])
+    ]
+
     # Create neuron layers (M neurons, each with N inputs)
     #  (M for layer x must equal N for layer x+1)
     neuron_layers = [
-        NeuronLayer(4, 4),
-        NeuronLayer(3, 4),
-        NeuronLayer(3, 3)]
+        NeuronLayer(4, 4, starting_weights[0]),
+        NeuronLayer(4, 4, starting_weights[1]),
+        NeuronLayer(3, 4, starting_weights[2])]
 
     # Combine the layers to create a neural network
     neural_network = NeuralNetwork(neuron_layers)
@@ -407,14 +440,14 @@ if __name__ == "__main__":
          _args.epochs
     )
 
-    print("Stage 2) New synaptic weights after training: ")
-    neural_network.print_weights()
+    # print("Stage 2) New synaptic weights after training: ")
+    # neural_network.print_weights()
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
-    for input_set in validation_set_inputs[0:5]:
+    for input_set in validation_set_inputs[0:6]:
         ticks = ["X" if x > 0.5 else " " for x in input_set]
 
         outputs = neural_network.think(array([input_set]))

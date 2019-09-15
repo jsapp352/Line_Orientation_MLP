@@ -7,11 +7,11 @@ import subprocess
 
 from pprint import pprint
 
-_v_plus = 5
-_v_minus = -5
+_v_plus = 7
+_v_minus = -7.0
 
-_v_in_max = 2.0
-_v_in_min = -2.0
+_v_in_max = 1.5
+_v_in_min = -1.5
 
 _pot_tolerance = 0.20
 
@@ -58,9 +58,9 @@ class MLP_Circuit_Layer():
 
         
 
-        self.synapses_r_pos = (self.neuron_layer.synaptic_weights / self.max_weight + 1) / 2 * self.r_total_ohms + 1
+        self.synapses_r_neg = (self.neuron_layer.synaptic_weights / self.max_weight + 1) / 2 * self.r_total_ohms + 1
 
-        self.synapses_r_neg = self.r_total_ohms - self.synapses_r_pos
+        self.synapses_r_pos = self.r_total_ohms - self.synapses_r_neg
     
     def create_layer_subcircuit(self):
         neuron_lines = []
@@ -94,7 +94,7 @@ class MLP_Circuit_Layer():
 
         lines.append(f'X_Sum_{n_id} Neuron_{n_id}_008 Neuron_{n_id}_004 V+ V- Neuron_{n_id}_005 TL084')
         lines.append(f'X_Activation_{n_id} 0 Neuron_{n_id}_001 V+ V- {output} TL084')
-        lines.append(f'R**_{n_id} Neuron_{n_id}_005 Neuron_{n_id}_004 200k tol=5')
+        lines.append(f'R**_{n_id} Neuron_{n_id}_005 Neuron_{n_id}_004 {90 / self.inputs_per_neuron}k tol=5')
         lines.append(f'R4_{n_id} Neuron_{n_id}_001 Neuron_{n_id}_005 20k tol=5')
         lines.append(f'R8_{n_id} Neuron_{n_id}_003 Neuron_{n_id}_001 100k tol=5')
         lines.append(f'R9_{n_id} Neuron_{n_id}_003 {output} 3.3k tol=5')
@@ -122,11 +122,11 @@ class MLP_Circuit_Layer():
 
             lines.append(f'R_in_{s_id} buff_out_{s_id} Input_{s_id} {r_pos}')
             lines.append(f'R_in`_{s_id} buff`_out_{s_id} Input_{s_id} {r_neg}')
-            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 20k')
+            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 5k')
         else:
             lines.append(f'R_in_{s_id} {input} Input_{s_id} {r_pos}')
             lines.append(f'R_in`_{s_id} {input}` Input_{s_id} {r_neg}')
-            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 20K')
+            lines.append(f'R_in_{s_id}_series Input_{s_id} Neuron_{n_id}_004 5K')
 
         lines.append('\n')
 
@@ -189,7 +189,7 @@ class MLP_Circuit():
         lines = []
 
         lines.append('.model D D')
-        lines.append('.lib C:\\Users\\jsapp\\Documents\\LTspiceXVII\\lib\\cmp\\standard.dio')
+        lines.append('.lib D:\\Users\\jsapp\\Documents\\LTspiceXVII\\lib\\cmp\\standard.dio')
         lines.append('.include TL084.txt')
         lines.append('.include 1N4001.txt')
         
@@ -227,13 +227,13 @@ class MLP_Circuit():
                 lines.append(f'.measure V{node} avg V({node})')
 
         #DEBUG
-        # lines.append('\n')
-        # for layer in self.hardware_layers:
-        #     for node in layer.output_nodes:
-        #         pattern = re.compile('(Neuron_\\d+_\\d+)')
-        #         activation_input_node = f'{pattern.search(node)[0]}_005'
-        #         lines.append(f'.save V({activation_input_node})')
-        #         lines.append(f'.measure V{activation_input_node} avg V({activation_input_node})')
+        lines.append('\n')
+        for layer in self.hardware_layers:
+            for node in layer.output_nodes:
+                pattern = re.compile('(Neuron_\\d+_\\d+)')
+                activation_input_node = f'{pattern.search(node)[0]}_005'
+                lines.append(f'.save V({activation_input_node})')
+                lines.append(f'.measure V{activation_input_node} avg V({activation_input_node})')
         
         lines.append('\n')
 
