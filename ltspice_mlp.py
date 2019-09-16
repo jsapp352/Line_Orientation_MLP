@@ -4,6 +4,8 @@
 import numpy
 import re
 import subprocess
+from random import randrange
+from operator import attrgetter
 
 from pprint import pprint
 
@@ -14,6 +16,8 @@ _v_in_max = 1.5
 _v_in_min = -1.5
 
 _pot_tolerance = 0.20
+_pot_tap_count = 128
+_pots_per_chip = 4
 
 _r_total_ohms = 5000
 
@@ -24,7 +28,7 @@ _ltspice_path = '"C:\\Program Files\\LTC\\LTspiceXVII\\XVIIx64.exe" -b '
 _simulation_includes_input_buffers = False
 
 class MLP_Circuit_Layer():
-    def __init__(self, neuron_layer, input_nodes, layer_number, r_total_ohms):
+    def __init__(self, neuron_layer, input_nodes, layer_number, r_total_ohms, digital_pot_factory):
         self.neuron_layer = neuron_layer
         self.neuron_count = neuron_layer.neuron_count
         self.inputs_per_neuron = neuron_layer.inputs_per_neuron
@@ -39,28 +43,21 @@ class MLP_Circuit_Layer():
         self.r_total_ohms = r_total_ohms
         self.max_weight = self.neuron_layer.max_weight
 
-        self.synapses_r_pos = None
+        self.digital_pots = [[digital_pot_factory.pot(self.max_weight) for j in range(0, self.neuron_count)] for i in range(0, self.inputs_per_neuron)]
         self.synapses_r_neg = None
+        self.synapses_r_pos = None
+
         self.update_synapse_weights()
 
     def update_synapse_weights(self):
-        #DEV -- Need to add method for randomizing actual resistance/representing pot. tolerance.
-        max_val = numpy.amax(self.neuron_layer.synaptic_weights)
-        # print(f'max_val: {max_val}')
-        min_val = numpy.amin(self.neuron_layer.synaptic_weights)
-        # print(f'min_val: {min_val}')
-
-        # Scale weights to take up maximum pot. range.
-        scale = 1 / (max(abs(max_val), abs(min_val)))
-
-        # Scale weights down a little bit.
-        scale *= 0.8
-
+        for i in range(0, self.inputs_per_neuron-1):
+            for j in range(0, self.neuron_count-1):
+                self.digital_pots[j][i].set_weight(self.neuron_layer.synaptic_weights[j][i])
         
 
-        self.synapses_r_neg = (self.neuron_layer.synaptic_weights / self.max_weight + 1) / 2 * self.r_total_ohms + 1
+        self.synapses_r_neg = numpy.asarray([[x.r_neg for x in y] for y in self.digital_pots])
 
-        self.synapses_r_pos = self.r_total_ohms - self.synapses_r_neg
+        self.synapses_r_pos = self.synapses_r_neg = numpy.asarray([[x.r_pos for x in y] for y in self.digital_pots])
     
     def create_layer_subcircuit(self):
         neuron_lines = []
@@ -132,6 +129,42 @@ class MLP_Circuit_Layer():
 
         return lines
 
+class DigitalPot():
+    def __init__(self, r_total_ohms, tap_count, max_weight):
+        self.r_total_ohms = r_total_ohms
+        self.tap_count = tap_count
+        self.max_weight = max_weight
+
+        # Throw-away initial value
+        self.set_weight(0)
+
+    def set_weight(self, weight):
+        wiper_position = min(self.tap_count-1, max(1, int((weight / self.max_weight + 1) / 2 * self.tap_count)))
+        self.r_neg = wiper_position / self.tap_count * self.r_total_ohms
+        self.r_pos = self.r_total_ohms - self.r_neg
+
+
+
+class DigitalPotFactory():
+    def __init__(self, r_total_ohms, tap_count, pots_per_chip, tolerance):
+        self.r_total_ohms = r_total_ohms
+        self.tap_count = tap_count
+        self.tolerance = tolerance
+        self.pots_per_chip = pots_per_chip
+        self.pot_counter = 1
+        self.chip_resistance = r_total_ohms
+
+    def pot(self, max_weight):
+        if (self.pot_counter == 1):
+            self.chip_resistance = randrange(int((1.0-self.tolerance) * self.r_total_ohms), int((1.0+self.tolerance) * self.r_total_ohms))
+
+        self.pot_counter = (self.pot_counter + 1) if (self.pot_counter < self.pots_per_chip) else 1
+
+        return DigitalPot(self.chip_resistance, self.tap_count, max_weight)
+
+        
+        
+
 class MLP_Circuit():
     def __init__(self, neural_network):
         self.v_plus = _v_plus
@@ -145,6 +178,8 @@ class MLP_Circuit():
         self.output_filename = _output_filename
         self.result_filename = _result_filename
         self.ltspice_path = _ltspice_path
+
+        self.digital_pot_factory = DigitalPotFactory(_r_total_ohms, _pot_tap_count, _pots_per_chip, _pot_tolerance)
         
         self.neural_network = neural_network
         self.hardware_layers = []
@@ -155,12 +190,13 @@ class MLP_Circuit():
         self.power_sources['V-'] = _v_minus
 
         self.input_sources = []
+
     
     def initialize_hardware_layers(self):
         input_nodes = None
 
         for idx,model_layer in enumerate(self.neural_network.neuron_layers):
-            self.hardware_layers.append(MLP_Circuit_Layer(model_layer, input_nodes, idx, self.r_total_ohms))
+            self.hardware_layers.append(MLP_Circuit_Layer(model_layer, input_nodes, idx, self.r_total_ohms, self.digital_pot_factory))
             print(f'Layer {idx} output nodes: {self.hardware_layers[idx].output_nodes}')
             input_nodes = self.hardware_layers[idx].output_nodes
         
