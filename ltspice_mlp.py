@@ -16,7 +16,7 @@ _v_in_max = 1.5
 _v_in_min = -1.5
 
 _pot_tolerance = 0.20
-_pot_tap_count = 128
+_pot_tap_count = 256
 _pots_per_chip = 4
 
 _r_total_ohms = 5000
@@ -50,14 +50,14 @@ class MLP_Circuit_Layer():
         self.update_synapse_weights()
 
     def update_synapse_weights(self):
-        for i in range(0, self.inputs_per_neuron-1):
-            for j in range(0, self.neuron_count-1):
+        for i in range(0, self.neuron_count):
+            for j in range(0, self.inputs_per_neuron):
                 self.digital_pots[j][i].set_weight(self.neuron_layer.synaptic_weights[j][i])
         
 
         self.synapses_r_neg = numpy.asarray([[x.r_neg for x in y] for y in self.digital_pots])
 
-        self.synapses_r_pos = self.synapses_r_neg = numpy.asarray([[x.r_pos for x in y] for y in self.digital_pots])
+        self.synapses_r_pos = numpy.asarray([[x.r_pos for x in y] for y in self.digital_pots])
     
     def create_layer_subcircuit(self):
         neuron_lines = []
