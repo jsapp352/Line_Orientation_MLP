@@ -9,11 +9,11 @@ from operator import attrgetter
 
 from pprint import pprint
 
-_v_plus = 7
-_v_minus = -7.0
+_v_plus = 10.0
+_v_minus = 0.0
 
-_v_in_max = 1.5
-_v_in_min = -1.5
+_v_in_max = 3.0
+_v_in_min = 0.0
 
 _pot_tolerance = 0.20
 _pot_tap_count = 256
@@ -293,7 +293,7 @@ class MLP_Circuit():
             
             # If input buffers are not included in the simulation, add voltage sources for inverted input values
             if not simulation_includes_input_buffers:
-                lines.append(f'V{i}` {node}` 0 {voltage * (-1)} Rser=0.1')
+                lines.append(f'V{i}` {node}` 0 {self.v_in_max - voltage + self.v_in_min } Rser=0.1')
             i += 1
 
         lines.append('\n')

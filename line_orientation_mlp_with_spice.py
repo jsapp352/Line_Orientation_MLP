@@ -86,8 +86,8 @@ def activation_test():
     neural_network = NeuralNetwork(neuron_layers)
     neural_network.neuron_layers[0].synaptic_weights[0:input_count] = np.atleast_1d(neuron_layers[0].max_weight)
 
-    input_start, input_end = (-5, 5)
-    sigmoid_start, sigmoid_end = (-1, 1)
+    input_start, input_end = (0, 2)
+    sigmoid_start, sigmoid_end = (0, 2)
     non_sigmoid_tick_interval = 0.5
     sigmoid_tick_interval = 0.05
     points_per_sigmoid_tick = 1
