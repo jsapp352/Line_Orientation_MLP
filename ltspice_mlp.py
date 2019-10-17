@@ -1,3 +1,5 @@
+
+
 # A module that provides an interface between a software MLP model
 #  and an LTspice hardware simulation.
 
@@ -32,9 +34,6 @@ class MLP_Circuit_Layer():
         self.neuron_layer = neuron_layer
         self.neuron_count = neuron_layer.neuron_count
         self.inputs_per_neuron = neuron_layer.inputs_per_neuron
-
-        #DEBUG
-        # print(f'input nodes: {input_nodes}')
 
         self.input_nodes = [f'Synapse_{layer_number}_{x}_in' for x in range(0, self.inputs_per_neuron)] if layer_number == 0 else input_nodes
         self.output_nodes = [f'Neuron_{layer_number}_{x}_out' for x in range(0, self.neuron_count)]
@@ -74,9 +73,6 @@ class MLP_Circuit_Layer():
                 s_id = f'{n_id}_{j}'
                 r_pos = f'{self.synapses_r_pos[j][i]}'
                 r_neg = f'{self.synapses_r_neg[j][i]}'
-
-                #DEBUG
-                # print(f'j: {j}. inputs[j]: {inputs[j]}')
                 
                 input = inputs[j]
                 
@@ -162,9 +158,6 @@ class DigitalPotFactory():
 
         return DigitalPot(self.chip_resistance, self.tap_count, max_weight)
 
-        
-        
-
 class MLP_Circuit():
     def __init__(self, neural_network):
         self.v_plus = _v_plus
@@ -205,9 +198,6 @@ class MLP_Circuit():
 
 
     def update_input_sources(self, input_array):
-        # print('Update_input_sources() input_array:')
-        # pprint(input_array)
-        # print('\n')
 
         inputs = input_array.tolist()
 
@@ -218,8 +208,6 @@ class MLP_Circuit():
         map_input = lambda x: x * v_in_range / 2 + v_in_center
 
         self.input_sources = [map_input(x) for x in inputs]
-
-        # pprint(self.input_sources)
 
     def create_header(self):
         lines = []
@@ -262,7 +250,8 @@ class MLP_Circuit():
             for node in layer.output_nodes:
                 lines.append(f'.measure V{node} avg V({node})')
 
-        #DEBUG
+        #DEBUG These measurements are included for debugging purposes.
+        #      They are not required outputs for the simulation.
         lines.append('\n')
         for layer in self.hardware_layers:
             for node in layer.output_nodes:
@@ -343,18 +332,10 @@ class MLP_Circuit():
 
                 #DEV Break this normalization formula out into its own function
                 outputs.append((numpy.asarray(output_voltages) + self.v_in_max) / (2 * self.v_in_max))
-                # pprint(outputs[-1])
 
-        # pprint(numpy.asarray(outputs))
         return True, numpy.asarray(outputs)
 
     def think(self, inputs):
-        # print('Ckt.Think() inputs:')
-        # pprint(inputs)
-        # print('\n')
-        # print('Ckt.Think() inputs.tolist():')
-        # pprint(inputs.tolist())
-        # print('\n')
 
         self.update_input_sources(inputs)
 

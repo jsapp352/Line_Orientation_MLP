@@ -3,7 +3,6 @@
 
 import argparse
 import emnist_loader
-import ltspice_mlp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -12,7 +11,7 @@ from pprint import pprint
 
 
 parser = argparse.ArgumentParser(
-    description='Train a multi-layer perceptron to detect the orientation of a line.',
+    description='Train a multi-layer perceptron to detect handwritten characters.',
     allow_abbrev=True)
 
 parser.add_argument('epochs', type=int,
@@ -23,13 +22,8 @@ parser.add_argument('-plot', action='store_true',
                     help='show a plot of the accuracy data by epoch')
 parser.add_argument('-noisy_activation', action='store_true',
                     help='add simulated noise to the activation function')
-# parser.add_argument('-data_from_files', action='store_true',
-#                     help='load training and validation data from text files')
 
 _args = parser.parse_args()
-
-# _training_data_file = "training_set.txt"
-# _validation_data_file = "validation_set.txt"
 
 _validation_iterations = 2000
 _validation_tick_interval = 1
@@ -44,6 +38,8 @@ def plot_data_samples(X_train, y_labels, y_train, width):
     fig = plt.figure()
     for i in range(len(X_train)):
         two_d = (np.reshape(X_train[i], (width, width)) * 255).astype(np.uint8)
+        two_d = np.rot90(two_d, 3)
+        two_d = np.fliplr(two_d)
         plt.subplot(5,5,i+1)
         plt.tight_layout()
         plt.imshow(two_d, cmap='gray', interpolation='none')
@@ -63,12 +59,6 @@ def plot_accuracy(accuracy_by_epoch):
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
     plt.show()
-
-# Source: https://medium.com/@awjuliani/simple-softmax-in-python-tutorial-d6b4c4ed5c16
-def softmax(z):
-    z -= np.max(z)
-    sm = (np.exp(z).T / np.sum(np.exp(z))).T
-    # return sm
 
 class NeuronLayer():
     def __init__(self, number_of_neurons, number_of_inputs_per_neuron):
@@ -96,29 +86,18 @@ class NeuralNetwork():
     def activation_derivative(self, x):
         return self.sigmoid_derivative(x)
 
-    def relu(self, x):
-        return 0.5 * x * (x > 0)
-
     def relu_derivative(self, x):
         return 0.5 * (x > 30)
-
-    # The Sigmoid function, which describes an S shaped curve.
-    # We pass the weighted sum of the inputs through this function to
-    # normalise them between 0 and 1.
+    
     def sigmoid(self, x):
         if _args.noisy_activation == True:
             x += random.normal(0, _standard_deviation, x.shape)
 
         return 1 / (1 + exp(-x))
 
-    # The derivative of the Sigmoid function.
-    # This is the gradient of the Sigmoid curve.
-    # It indicates how confident we are about the existing weight.
     def sigmoid_derivative(self, x):
         return x * (1 - x)
 
-    # We train the neural network through a process of trial and error.
-    # Adjusting the synaptic weights each time.
     def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations):
         batch_size = _args.training_batch_size
         layers = self.neuron_layers
@@ -158,8 +137,6 @@ class NeuralNetwork():
                 output = output_from_layers[i]
 
                 next_layer = layers[i+1]
-                next_layer_error = errors[next_layer]
-                next_layer_delta = deltas[next_layer]
 
                 errors[layer] = deltas[next_layer].dot(next_layer.synaptic_weights.T)
                 deltas[layer] = errors[layer] * self.activation_derivative(output)
@@ -197,15 +174,10 @@ class NeuralNetwork():
         for index in indices:
             outputs = neural_network.think(array(test_inputs[index]))
 
-            # print([outputs[-1]])
-            # probabilities = softmax([outputs[-1]])
             prediction = np.argmax([outputs[-1]],axis=1)[0]
-            # print(f"{prediction}: {test_outputs[index]}")
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
-
-        # print(correct_predictions / len(indices) * 100.0)
 
         return correct_predictions / len(indices) * 100.0
 
@@ -225,8 +197,6 @@ class NeuralNetwork():
             output_tensors.append(output)
             input_tensors.append(output)
 
-        # output_tensors[-1] = softmax(output_tensors[-1])
-
 
         return output_tensors
 
@@ -240,27 +210,31 @@ class NeuralNetwork():
             print(layer.synaptic_weights)
 
 if __name__ == "__main__":
-    # Data image width (in pixels)
-    width = 5
-
     #Seed the random number generator
     random.seed(1)
 
-    training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width)
 
-    prediction_labels = {
-        0 : "X",
-        1 : "O"
-    }
+    # Data image width (in pixels)
+    width = 10
+
+    # Characters used in data set
+    data_char_set = ['U', 'C', 'F']
+
+    # Neuron count for each hidden layer
+    hidden_layer_sizes = [3]
+
 
     # Create neuron layers (M neurons, each with N inputs)
     #  (M for layer x must equal N for layer x+1)
-    neuron_layers = [
-        NeuronLayer(2, width*width)
-    ]
-
+    layer_dimensions = zip(hidden_layer_sizes + [len(data_char_set)], [width**2] + hidden_layer_sizes)
+    neuron_layers = [ NeuronLayer(y, x) for y, x in layer_dimensions]
+ 
     # Combine the layers to create a neural network
     neural_network = NeuralNetwork(neuron_layers)
+
+    # Load data sets and create prediction labels
+    training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
+    prediction_labels = dict((idx, data_char) for idx,data_char in enumerate(data_char_set))
 
     print("Stage 1) Random starting synaptic weights: ")
     neural_network.print_weights()
@@ -275,11 +249,10 @@ if __name__ == "__main__":
         training_set_outputs,
         validation_set_inputs,
         validation_set_outputs,
-         _args.epochs
+        _args.epochs
     )
 
-    print("Stage 2) New synaptic weights after training: ")
-    # neural_network.print_weights()
+    print("Stage 2) Train the network: ")
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)
@@ -293,19 +266,9 @@ if __name__ == "__main__":
 
     sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
 
-    # print([x for x in sample_inputs])
-    # print(sample_outputs)
-    # print([prediction_labels[x] for x in np.argmax(sample_outputs, axis=1)])
-
     sample_preds = [prediction_labels[x] for x in np.argmax(sample_outputs, axis=1)]
-    #
-    # print(sample_preds)
-    #
+    
     print(sample_outputs)
 
-    if _args.plot:
-        plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
-
-    ckt = ltspice_mlp.MLP_Circuit(neural_network)
-    ckt.update_input_sources(sample_inputs[0])
-    ckt.create_netlist()
+    # if _args.plot:
+    #     plot_data_samples(sample_inputs, sample_labels, sample_preds, width)

@@ -2,6 +2,7 @@
 #  - Provide meta-data about number of characters in list
 #  - Provide meta-data about number of pixels in each sample image
 
+from emnist_byclass_mapping import byclass_map
 from matplotlib import pyplot as plt
 from mlxtend.data import loadlocal_mnist
 import numpy as np
@@ -17,27 +18,28 @@ def gen_image(arr, width):
 # Load test and training data. "x" represents inputs, "y" represents outputs.
 def load(emnist_path, width, data_char_set = ['x', 'o']):
     training_x, training_y = load_data_pair(
-        os.path.join(emnist_path,'emnist-letters-train-images-idx3-ubyte'),
-        os.path.join(emnist_path,'emnist-letters-train-labels-idx1-ubyte'),
+        os.path.join(emnist_path,'emnist-byclass-train-images-idx3-ubyte'),
+        os.path.join(emnist_path,'emnist-byclass-train-labels-idx1-ubyte'),
         width,
         data_char_set
     )
 
     test_x, test_y = load_data_pair(
-        os.path.join(emnist_path,'emnist-letters-test-images-idx3-ubyte'),
-        os.path.join(emnist_path,'emnist-letters-test-labels-idx1-ubyte'),
+        os.path.join(emnist_path,'emnist-byclass-test-images-idx3-ubyte'),
+        os.path.join(emnist_path,'emnist-byclass-test-labels-idx1-ubyte'),
         width,
         data_char_set
     )
 
     return training_x, training_y, test_x, test_y
 
+
 def load_data_pair(images_path, labels_path, width, data_char_set):
     X, Y = loadlocal_mnist(images_path, labels_path)
 
     data_char_set_size = len(data_char_set)
 
-    data_char_indices = [ord(x) - ord('a') + 1 for x in data_char_set]
+    data_char_indices = [byclass_map[ord(x)] for x in data_char_set]
 
     indices = np.argwhere(Y == data_char_indices[0])    
     for i in range(1, data_char_set_size):
