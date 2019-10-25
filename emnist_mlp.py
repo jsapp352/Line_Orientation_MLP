@@ -34,13 +34,13 @@ _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 # Standard deviation for activation noise
 _standard_deviation = 0.45
 
-def plot_data_samples(X_train, y_labels, y_train, width):
+def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
     fig = plt.figure()
     for i in range(len(X_train)):
         two_d = (np.reshape(X_train[i], (width, width)) * 255).astype(np.uint8)
         two_d = np.rot90(two_d, 3)
         two_d = np.fliplr(two_d)
-        plt.subplot(5,5,i+1)
+        plt.subplot(len(X_train)/samples_per_row+1,samples_per_row,i+1)
         plt.tight_layout()
         plt.imshow(two_d, cmap='gray', interpolation='none')
         plt.title(f"{y_labels[i]} -> {y_train[i]}")
@@ -234,7 +234,6 @@ if __name__ == "__main__":
 
     # Load data sets and create prediction labels
     training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
-    prediction_labels = dict((idx, data_char) for idx,data_char in enumerate(data_char_set))
 
     print("Stage 1) Random starting synaptic weights: ")
     neural_network.print_weights()
@@ -258,17 +257,38 @@ if __name__ == "__main__":
         plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
-    sample_size = 25
 
-    sample_inputs = validation_set_inputs[0:sample_size]
-
-    sample_labels = [prediction_labels[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
-
-    sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
-
-    sample_preds = [prediction_labels[x] for x in np.argmax(sample_outputs, axis=1)]
+    samples_per_row = 6
+    sample_indices = []
+    sample_inputs = []
+    sample_labels = []
+    sample_outputs = []
+    sample_preds = []
     
+    for i in range(len(data_char_set)):
+        n = 0
+        j = 0
+        while j < min(samples_per_row, len(validation_set_outputs)):
+            if np.argmax(validation_set_outputs[n]) == i:
+                sample_indices.append(n)
+                sample_inputs.append(validation_set_inputs[n])
+                sample_labels.append(data_char_set[i])
+                sample_outputs.append(neural_network.think(sample_inputs[-1])[-1])
+                sample_preds.append(data_char_set[np.argmax(sample_outputs[-1])])
+                j += 1
+            n += 1
+
+
+    # sample_size = 25
+    # sample_inputs = validation_set_inputs[0:sample_size]
+    # sample_labels = [data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
+    # sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
+    # sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
+
+
+    
+
     print(sample_outputs)
 
-    # if _args.plot:
-    #     plot_data_samples(sample_inputs, sample_labels, sample_preds, width)
+    if _args.plot:
+        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_row)
