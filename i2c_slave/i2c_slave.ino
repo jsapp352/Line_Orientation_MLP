@@ -8,11 +8,9 @@ int weightIdx = 0;
 int outputIdx = 0;
 
 int weights[10];
-int outputs[6] = {2,3,4,5,6,7};
+uint16_t outputs[6] = {2,1003,204,2335,506,7};
 int weightCount = sizeof(weights)/sizeof(weights[0]);
 int outputCount = sizeof(outputs)/sizeof(outputs[0]);
-
-void(*rxCallback)(int) = nullptr;
 
 void setup() 
 {
@@ -23,8 +21,7 @@ void setup()
    Wire.begin(SLAVE_ADDRESS);
    
    // define callbacks for i2c communication
-   rxCallback = &receiveCommand;
-   Wire.onReceive(rxCallback);
+   Wire.onReceive(receiveCommand);
    Wire.onRequest(sendData);
 
    Serial.println("Ready!");
@@ -36,13 +33,18 @@ void loop()
 }
 
 void receiveCommand(int byteCount)
-{
+{  
+  Serial.print("Bytes received: ");
+  Serial.print(byteCount);
+  Serial.println("");
+  Serial.flush();
+  
   if(Wire.available())
   {
     int command = Wire.read();
 
-//    Serial.print("Command received: ");
-//    Serial.println(command);
+    Serial.print("Command received: ");
+    Serial.print(command);
 
     if (command == 0)
     {
@@ -54,11 +56,19 @@ void receiveCommand(int byteCount)
         outputIdx = 0;
     }
   }
+
+  while(Wire.available())
+  {
+    Serial.print(" ");
+    Serial.print(Wire.read());
+  }
+
+  Serial.println("");
 }
 
 // callback for received data
 void receiveData(int byteCount)
-{
+{  
   while (Wire.available())
   {
     weights[weightIdx++] = Wire.read();
@@ -82,8 +92,15 @@ void receiveData(int byteCount)
 // callback for sending data
 void sendData()
 {
-  Serial.print("Sending: ");
-  Serial.print(outputs[outputIdx]);
-  Serial.println("");
-   Wire.write(outputs[outputIdx++]);
+  char *bytes = (char*)outputs;
+  int outputCount = 2 * sizeof(outputs)/sizeof(outputs[0]);
+  Serial.print("Sending output bytes: [ ");
+      for (int i = 0; i < outputCount; i++)
+      {
+        Serial.print((int)(bytes[i]));
+        Serial.print( i < (outputCount-1) ? ", " : " ]");
+      }
+      Serial.println("");
+      
+  Wire.write((char*)outputs, outputCount);
 }

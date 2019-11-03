@@ -1,5 +1,5 @@
 import itertools
-import smbus2
+from smbus2 import SMBus, i2c_msg
 
 from time import sleep
 
@@ -7,7 +7,7 @@ class MLPLink:
     def __init__(self, mcu_addr, layer_count, neurons_per_layer, inputs_per_layer):
         self.commands = {
             "set_weights":  0,
-            "read_outputs": 1,
+            "read_outputs": 5,
             }
         
         self.mcu_addr = mcu_addr
@@ -19,7 +19,7 @@ class MLPLink:
         # Flatten the nested lists of weights.
         data = itertools.chain(*(itertools.chain(*weights)))
         
-        with smbus2.SMBus(1) as bus:
+        with SMBus(1) as bus:
             bus.write_byte(self.mcu_addr, self.commands["set_weights"])
             sleep(0.1)
             for weight in data:
@@ -29,12 +29,24 @@ class MLPLink:
     def read_outputs(self):
         output_count = sum(self.neurons_per_layer)
 
-        with smbus2.SMBus(1) as bus:
+        with SMBus(1) as bus:
             bus.write_byte(self.mcu_addr, self.commands["read_outputs"])
             
-            outputs = [bus.read_byte(self.mcu_addr) for x in range(output_count)]
+            outputs = [bus.read_byte_data(self.mcu_addr, self.commands["read_outputs"]) for x in range(output_count)]
 
         return outputs
+
+    def read_outputs_i2c(self):
+        output_count = sum(self.neurons_per_layer)
+
+        write = i2c_msg.write(self.mcu_addr, [1])
+        read  = i2c_msg.read(self.mcu_addr, output_count*2)
+
+        with SMBus(1) as bus:
+            bus.i2c_rdwr(write, read)
+            
+        print(f'\nReceived output byte array: {list(read.buf[0:output_count*2])}\n')
+        return [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
     
 def main():
     link = MLPLink(4, 3, [2,2,2], [1,2,2])
@@ -42,9 +54,9 @@ def main():
 
     link.set_weights(weights)
 
-    outputs = link.read_outputs()
-
-    print(f'Outputs received: {outputs}')
+    outputs = link.read_outputs_i2c()
+   
+    print(f'Outputs received: {outputs}\n')
 
 
 
