@@ -44,7 +44,7 @@ def main():
 
     outputs = link.read_outputs()
 
-    print(outputs)
+    print(f'Outputs received: {outputs}')
 
 
 

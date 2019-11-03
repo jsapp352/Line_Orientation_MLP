@@ -41,8 +41,8 @@ void receiveCommand(int byteCount)
   {
     int command = Wire.read();
 
-    Serial.print("Command received: ");
-    Serial.println(command);
+//    Serial.print("Command received: ");
+//    Serial.println(command);
 
     if (command == 0)
     {
@@ -82,5 +82,8 @@ void receiveData(int byteCount)
 // callback for sending data
 void sendData()
 {
+  Serial.print("Sending: ");
+  Serial.print(outputs[outputIdx]);
+  Serial.println("");
    Wire.write(outputs[outputIdx++]);
 }
