@@ -1,5 +1,7 @@
 import itertools
-import smbus
+import smbus2
+
+from time import sleep
 
 class MLPLink:
     def __init__(self, mcu_addr, layer_count, neurons_per_layer, inputs_per_layer):
@@ -15,27 +17,28 @@ class MLPLink:
 
     def set_weights(self, weights):
         # Flatten the nested lists of weights.
-        data = itertools.chain.from_iterable(weights)
+        data = itertools.chain(*(itertools.chain(*weights)))
         
-        with smbus.SMBus(1) as bus:
+        with smbus2.SMBus(1) as bus:
             bus.write_byte(self.mcu_addr, self.commands["set_weights"])
-
+            sleep(0.1)
             for weight in data:
+                print(f'Sending {weight}')
                 bus.write_byte(self.mcu_addr, weight)
     
     def read_outputs(self):
         output_count = sum(self.neurons_per_layer)
 
-        with smbus.SMBus(1) as bus:
+        with smbus2.SMBus(1) as bus:
             bus.write_byte(self.mcu_addr, self.commands["read_outputs"])
             
-            outputs = [bus.read_word(addr) for x in range(output_count)]
+            outputs = [bus.read_byte(self.mcu_addr) for x in range(output_count)]
 
         return outputs
     
 def main():
     link = MLPLink(4, 3, [2,2,2], [1,2,2])
-    weights = [ [ [1],[2] ], [ [1,2],[3,4] ], [ [1,2],[3,4] ] ]
+    weights = [ [ [0],[2] ], [ [1,2],[3,4] ], [ [1,2],[3,4] ] ]
 
     link.set_weights(weights)
 

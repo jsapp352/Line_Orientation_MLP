@@ -8,8 +8,9 @@ int weightIdx = 0;
 int outputIdx = 0;
 
 int weights[10];
-int outputs[5];
+int outputs[6] = {2,3,4,5,6,7};
 int weightCount = sizeof(weights)/sizeof(weights[0]);
+int outputCount = sizeof(outputs)/sizeof(outputs[0]);
 
 void(*rxCallback)(int) = nullptr;
 
@@ -45,11 +46,12 @@ void receiveCommand(int byteCount)
 
     if (command == 0)
     {
-      rxCallback = &receiveData;
+      Wire.onReceive(receiveData);
     }
     else
     {
-      outputIdx = 0;
+      if (outputIdx >= outputCount)
+        outputIdx = 0;
     }
   }
 }
@@ -57,14 +59,14 @@ void receiveCommand(int byteCount)
 // callback for received data
 void receiveData(int byteCount)
 {
-  if (Wire.available())
+  while (Wire.available())
   {
     weights[weightIdx++] = Wire.read();
 
     if (weightIdx >= weightCount)
     {
       weightIdx = 0;
-      rxCallback = &receiveCommand;
+      Wire.onReceive(receiveCommand);
       
       Serial.print("Weights received: [ ");
       for (int i = 0; i < weightCount; i++)
