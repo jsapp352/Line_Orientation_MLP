@@ -4,8 +4,8 @@ import smbus
 class MLPLink:
     def __init__(self, mcu_addr, layer_count, neurons_per_layer, inputs_per_layer):
         self.commands = {
-            "set_weights":  1,
-            "read_outputs": 2,
+            "set_weights":  0,
+            "read_outputs": 1,
             }
         
         self.mcu_addr = mcu_addr
@@ -31,7 +31,7 @@ class MLPLink:
             
             outputs = [bus.read_word(addr) for x in range(output_count)]
 
-            return outputs
+        return outputs
     
 def main():
     link = MLPLink(4, 3, [2,2,2], [1,2,2])
