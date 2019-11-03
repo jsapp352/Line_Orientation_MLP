@@ -40,10 +40,12 @@ def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
         two_d = (np.reshape(X_train[i], (width, width)) * 255).astype(np.uint8)
         two_d = np.rot90(two_d, 3)
         two_d = np.fliplr(two_d)
-        plt.subplot(len(X_train)/samples_per_row+1,samples_per_row,i+1)
+        plt.subplot(samples_per_column,len(X_train)/samples_per_column,i+1)
         plt.tight_layout()
         plt.imshow(two_d, cmap='gray', interpolation='none')
-        plt.title(f"{y_labels[i]} -> {y_train[i]}")
+        title_color = 'black' if y_labels[i] == y_train[i] else 'red'
+        title_weight = 'normal'if y_labels[i] == y_train[i] else 'bold'
+        plt.title(f"{y_labels[i]} -> {y_train[i]}", c=title_color, fontweight=title_weight)
         plt.xticks([])
         plt.yticks([])
     plt.show()
@@ -56,7 +58,7 @@ def plot_accuracy(accuracy_by_epoch):
     batch_size_label = f'training batch size {_args.training_batch_size}'
     plt.title(f'Prediction Accuracy by Training Epoch\n{noise_label}\n{batch_size_label}')
 
-    plt.xlabel('Epoch')
+    plt.xlabel('Training Batch')
     plt.ylabel('Accuracy (%)')
     plt.show()
 
@@ -253,26 +255,26 @@ if __name__ == "__main__":
 
     print("Stage 2) Train the network: ")
 
-    if _args.plot:
-        plot_accuracy(accuracy_by_epoch)
+    # if _args.plot:
+    #     plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
 
-    samples_per_row = 6
+    samples_per_column = 6
     sample_indices = []
     sample_inputs = []
     sample_labels = []
     sample_outputs = []
     sample_preds = []
     
-    for i in range(len(data_char_set)):
-        n = 0
+    n = 258
+    for i in range(samples_per_column):
         j = 0
-        while j < min(samples_per_row, len(validation_set_outputs)):
-            if np.argmax(validation_set_outputs[n]) == i:
+        while j < min(len(data_char_set), len(validation_set_outputs)):
+            if np.argmax(validation_set_outputs[n]) == j:
                 sample_indices.append(n)
                 sample_inputs.append(validation_set_inputs[n])
-                sample_labels.append(data_char_set[i])
+                sample_labels.append(data_char_set[j])
                 sample_outputs.append(neural_network.think(sample_inputs[-1])[-1])
                 sample_preds.append(data_char_set[np.argmax(sample_outputs[-1])])
                 j += 1
@@ -291,4 +293,4 @@ if __name__ == "__main__":
     print(sample_outputs)
 
     if _args.plot:
-        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_row)
+        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
