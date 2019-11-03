@@ -15,6 +15,11 @@ class MLPLink:
         self.neurons_per_layer = neurons_per_layer
         self.inputs_per_layer = inputs_per_layer
 
+    def set_all_weights(self, weight):
+        weights = [[[weight for k in range(self.inputs_per_layer[j])] for j in range(self.neurons_per_layer[i])] for i in range(self.layer_count)]
+
+        self.set_weights(weights)
+
     def set_weights(self, weights):
         # Flatten the nested lists of weights.
         data = itertools.chain(*(itertools.chain(*weights)))
@@ -49,8 +54,8 @@ class MLPLink:
         return [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
     
 def main():
-    link = MLPLink(4, 3, [2,2,2], [1,2,2])
-    weights = [ [ [0],[2] ], [ [1,2],[3,4] ], [ [1,2],[3,4] ] ]
+    link = MLPLink(4, 2, [4,2], [4,4])
+    weights = [ [ [0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0] ], [ [0,0,0,0],[0,0,0,0] ] ]
 
     link.set_weights(weights)
 
