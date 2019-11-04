@@ -1,6 +1,7 @@
 import itertools
-from smbus2 import SMBus, i2c_msg
+import matplotlib.pyplot as plt
 
+from smbus2 import SMBus, i2c_msg
 from time import sleep
 
 class MLPLink:
@@ -15,8 +16,20 @@ class MLPLink:
         self.neurons_per_layer = neurons_per_layer
         self.inputs_per_layer = inputs_per_layer
 
+    def plot_activation(self, input_list, output_lists):
+        for output in output_lists:
+            plt.plot(input_list, output)
+
+        plt.title('Activation function output vs. weight (all inputs at max value)')
+        plt.xlabel('Byte value of weight')
+        plt.ylabel('ADC output reading')
+
+        plt.show()
+
+
+
     def set_all_weights(self, weight):
-        weights = [[[weight for k in range(self.inputs_per_layer[i])] for j in range(self.neurons_per_layer[i])] for i in range(self.layer_count)]
+        weights = [[[weight if i==0 else 255 for k in range(self.inputs_per_layer[i])] for j in range(self.neurons_per_layer[i])] for i in range(self.layer_count)]
         
         self.set_weights_i2c(weights)
 
@@ -70,20 +83,18 @@ def main():
     link = MLPLink(4, 2, [4,1], [4,4])
     weights = [ [ [0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0] ], [ [0,0,0,0],[0,0,0,0] ] ]
 
-    while True:
-        weight_str = input('Enter weight value: ')
-        if not weight_str:
-            continue
+    output_lists = [[] for i in range(sum(link.neurons_per_layer))]
 
-        weight = int(weight_str)
-
+    for weight in range(256):
+        
         link.set_all_weights(weight)
 
         outputs = link.read_outputs_i2c()
+
+        for idx,output in enumerate(outputs):
+            output_lists[idx].append(output)
    
-        print(f'Outputs received: {outputs}\n')
-
-
+    link.plot_activation([x for x in range(256)], output_lists)
 
 if __name__ == '__main__':
     main()
