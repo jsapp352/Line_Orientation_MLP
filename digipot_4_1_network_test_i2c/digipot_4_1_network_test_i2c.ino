@@ -93,9 +93,14 @@ void loop()
 
 void readOutputs()
 {
+  const int read_count = 4;
   for (int i = 0; i < MLP->neuronCount; i++)
   {
-    outputs[i] = analogRead(_outputPins[i]);
+    uint16_t read = 0;
+    for (int j = 0; j < read_count; j++)
+      read += analogRead(_outputPins[i]);
+      
+    outputs[i] = read / read_count;
   }
 }
 

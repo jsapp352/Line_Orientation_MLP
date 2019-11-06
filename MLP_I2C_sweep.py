@@ -16,13 +16,14 @@ class MLPLink:
         self.neurons_per_layer = neurons_per_layer
         self.inputs_per_layer = inputs_per_layer
 
-    def plot_activation(self, input_list, output_lists):
+    def plot_activation(self, input_list, output_lists, neuron_names):
         for output in output_lists:
             plt.plot(input_list, output)
 
         plt.title('Activation function output vs. weight (all inputs at max value)')
         plt.xlabel('Byte value of weight')
         plt.ylabel('ADC output reading')
+        plt.legend(neuron_names)
 
         plt.show()
 
@@ -65,7 +66,7 @@ class MLPLink:
             bus.i2c_rdwr(cmd_msg)
             #bus.i2c_rdwr(data_msg)
             
-        print(f'Sending {weights}')
+        #print(f'Sending {weights}')
 
     def read_outputs_i2c(self):
         output_count = sum(self.neurons_per_layer)
@@ -76,25 +77,39 @@ class MLPLink:
         with SMBus(1) as bus:
             bus.i2c_rdwr(write, read)
             
-        print(f'\nReceived output byte array: {list(read.buf[0:output_count*2])}\n')
+        #print(f'\nReceived output byte array: {list(read.buf[0:output_count*2])}\n')
         return [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
     
 def main():
     link = MLPLink(4, 2, [4,1], [4,4])
-    weights = [ [ [0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0] ], [ [0,0,0,0],[0,0,0,0] ] ]
+    weights = [ [ [0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0] ], [ [0,0,0,0] ] ]
+
+    neuron_names = []
+    for i in range(link.layer_count):
+        for j in range(link.neurons_per_layer[i]):
+            neuron_names.append(f'Neuron {i}_{j}')
 
     output_lists = [[] for i in range(sum(link.neurons_per_layer))]
 
-    for weight in range(256):
-        
-        link.set_all_weights(weight)
+    start_idx = 0
+    for i in range(link.layer_count):
+        end_idx = start_idx + link.neurons_per_layer[i]
+        for synapse in range(link.inputs_per_layer[i]):
+            for weight in range(0,256):
+    
+                #weights[i][0:][synapse] = weight
+                for w in weights[i]:
+                    w[synapse] = weight
+#                print(weights)
+                link.set_weights_i2c(weights)
 
-        outputs = link.read_outputs_i2c()
+                outputs = link.read_outputs_i2c()
 
-        for idx,output in enumerate(outputs):
-            output_lists[idx].append(output)
+                for j in range(start_idx, end_idx):
+                    output_lists[j].append(outputs[j])
+        start_idx = end_idx
    
-    link.plot_activation([x for x in range(256)], output_lists)
+    link.plot_activation([x for x in range(256*4)], output_lists, neuron_names)
 
 if __name__ == '__main__':
     main()
