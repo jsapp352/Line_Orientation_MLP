@@ -28,7 +28,6 @@ class MLPLink:
         plt.show()
 
 
-
     def set_all_weights(self, weight):
         weights = [[[weight if i==0 else 255 for k in range(self.inputs_per_layer[i])] for j in range(self.neurons_per_layer[i])] for i in range(self.layer_count)]
         
@@ -75,7 +74,7 @@ class MLPLink:
         read  = i2c_msg.read(self.mcu_addr, output_count*2)
 
         with SMBus(1) as bus:
-            bus.i2c_rdwr(write, read)
+            bus.i2c_rdwr(read)
             
         #print(f'\nReceived output byte array: {list(read.buf[0:output_count*2])}\n')
         return [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
