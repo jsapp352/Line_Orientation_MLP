@@ -2,7 +2,7 @@
 #include <i2c_t3.h>
 
 // Comment out this #define to disable debugging output
-//#define DEBUG 1
+#define DEBUG 1
 
 // I2C macros
 

@@ -79,9 +79,9 @@ def main():
 
         link.set_all_weights(weight)
 
-        #outputs = link.read_outputs_i2c()
+        outputs = link.read_outputs_i2c()
    
-        #print(f'Outputs received: {outputs}\n')
+        print(f'Outputs received: {outputs}\n')
 
 
 
