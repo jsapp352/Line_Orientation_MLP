@@ -34,10 +34,10 @@ typedef struct NeuralNetwork {
 } NeuralNetwork;
 
 // Output read pins
-const byte _outputPins[5] = {33,34,35,36,37};
+const byte _outputPins[7] = {33,34,35,36,37,38,39};
 
-uint16_t outputs[5] = {1,2,3,4,5};
-byte weights[20];
+uint16_t outputs[7] = {1,2,3,4,5,6,7};
+byte weights[28];
 
 // Set up MLP layers.  
 byte *l0w = weights;
@@ -156,9 +156,9 @@ void receiveData(int byteCount)
   int weightIdx = 0;
   int weightCount = MLP->weightCount;
 
-  char tempweights[20];
+  char tempweights[28];
 
-  Wire.read((char*)MLP->weights, 20);
+  Wire.read((char*)MLP->weights, 28);
 
 #ifdef DEBUG
   Serial.print("Weights received: [ ");

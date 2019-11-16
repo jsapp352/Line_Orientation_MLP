@@ -69,9 +69,9 @@ class MLPLink:
 
     def set_weights_i2c(self, weights):
         # Flatten the nested lists of weights.
-        data = itertools.chain(*(itertools.chain(*weights)))
+        data = list(itertools.chain(*(itertools.chain(*weights))))
 
-        cmd_msg  = i2c_msg.write(self.mcu_addr, [self.commands['set_weights']]+[x for x in data])
+        cmd_msg  = i2c_msg.write(self.mcu_addr, [self.commands['set_weights']]+data[::-1])
         #data_msg = i2c_msg.write(self.mcu_addr, data)
         
         with SMBus(1) as bus:
@@ -100,7 +100,8 @@ class MLPLink:
         return outputs
     
 def main():
-    link = MLPLink(4, 2, [4,1], [4,4])
+    link = MLPLink(4, 1, [4], [4])
+#    link = MLPLink(4, 2, [4,1], [4,4])
 
     neuron_names = []
     for i in range(link.layer_count):
@@ -110,7 +111,7 @@ def main():
     output_lists = [[] for i in range(sum(link.neurons_per_layer))]
 
 
-    reps_count = 10
+    reps_count = 20
 
     for h in range(reps_count):
         start_idx = 0
