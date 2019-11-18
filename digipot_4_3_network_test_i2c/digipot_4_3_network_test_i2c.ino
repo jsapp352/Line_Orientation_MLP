@@ -2,7 +2,7 @@
 #include <i2c_t3.h>
 
 // Comment out this #define to disable debugging output
-#define DEBUG 0
+//#define DEBUG 0
 
 // Neural network dimensions
 #define NEURON_COUNT 7

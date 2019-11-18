@@ -3,7 +3,7 @@ import numpy as np
 
 from smbus2 import SMBus, i2c_msg
 
-_mcu_addr = 0x04
+_mcu_addr = 4
 _adc_bit_resolution = 13
 
 class MLPLink:
@@ -28,10 +28,20 @@ class MLPLink:
 
     def set_weights(self, weights):
 
-        # Flatten the nested lists of weights.
-        data = list(itertools.chain(*(itertools.chain(*weights))))
+        data = []
 
-        msg  = i2c_msg.write(self.mcu_addr, data.insert(0, self.commands['set_weights']))
+        for layer_weights in weights:
+            for i in range(len(layer_weights[0])):
+                for j in range(len(layer_weights)):
+                    data.append(layer_weights[j][i])
+            
+        #print(weights)
+        
+        data.insert(0, self.commands['set_weights'])
+
+        #print(data)
+
+        msg  = i2c_msg.write(self.mcu_addr, data)
         
         with SMBus(1) as bus:
             bus.i2c_rdwr(msg)
@@ -40,7 +50,9 @@ class MLPLink:
 
         data = list(np.packbits(inputs))
 
-        msg = i2c_msg.write(self.mcu_addr, data.insert(0, self.commands['set_inputs']))
+        data.insert(0, self.commands['set_inputs'])
+
+        msg = i2c_msg.write(self.mcu_addr, data)
 
         with SMBus(1) as bus:
             bus.i2c_rdwr(msg)

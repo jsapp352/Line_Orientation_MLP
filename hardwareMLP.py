@@ -22,7 +22,7 @@ class MLP_Circuit():
     def calculate_layer_weights(self, layer):
         calculate_pos = lambda weight: min(_pot_tap_count-1, max(1, int((weight / layer.max_weight + 1) / 2 * _pot_tap_count)))
 
-        return [calculate_pos(x) for x in layer.synaptic_weights]
+        return [[calculate_pos(x) for x in y] for y in layer.synaptic_weights]
     
     def update_synaptic_weights(self):
 
@@ -43,7 +43,7 @@ class MLP_Circuit():
         idx = 0        
         outputs = []
 
-        for layer in self.neural_network:
+        for layer in self.neural_network.neuron_layers:
             layer_outputs = []
 
             for _ in range(0, layer.neuron_count):
@@ -62,7 +62,7 @@ class MLP_Circuit():
 
         outputs = self.get_outputs()
 
-        print(outputs)
+        #print(outputs)
 
         return outputs
 
