@@ -4,9 +4,10 @@ import numpy as np
 from smbus2 import SMBus, i2c_msg
 
 _mcu_addr = 0x04
+_adc_bit_resolution = 13
 
 class MLPLink:
-    def __init__(self, neurons_per_layer, inputs_per_layer, adc_bit_resolution):
+    def __init__(self, neurons_per_layer, inputs_per_layer):
 
         # Command codes for software/firmware communication. These should match the
         #   the definitions in the firmware code.
@@ -22,7 +23,8 @@ class MLPLink:
         self.inputs_per_layer = inputs_per_layer
         self.layer_count = len(neurons_per_layer)
 
-        self.max_adc = (1 << adc_bit_resolution) - 1
+        self.min_adc = 0.0
+        self.max_adc = float(1 << _adc_bit_resolution) - 1.0
 
     def set_weights(self, weights):
 
@@ -36,7 +38,7 @@ class MLPLink:
     
     def set_inputs(self, inputs):
 
-        data = list(np.bitpack(inputs))
+        data = list(np.packbits(inputs))
 
         msg = i2c_msg.write(self.mcu_addr, data.insert(0, self.commands['set_inputs']))
 
