@@ -4,9 +4,19 @@
 // Comment out this #define to disable debugging output
 #define DEBUG 0
 
+// Neural network dimensions
+#define NEURON_COUNT 7
+#define WEIGHT_COUNT 28
+#define INPUT_LAYER_SIZE 4
+
 // I2C macros
 
 #define SLAVE_ADDRESS 0x04
+
+#define INITIALIZE_CMD 0x01
+#define SET_WEIGHTS_CMD 0x02
+#define SET_INPUTS_CMD 0x03
+#define READ_OUTPUTS_CMD 0x04
 
 // Digital pot macros
 
@@ -19,7 +29,7 @@
 
 #define CHIP_SELECT_PIN 9
 
-typedef struct NeuronLayer {
+    typedef struct NeuronLayer {
    int inputsPerNeuron;
    int neuronCount;
    byte **weights;
@@ -33,11 +43,15 @@ typedef struct NeuralNetwork {
    int neuronCount;
 } NeuralNetwork;
 
-// Output read pins
-const byte _outputPins[7] = {33,34,35,36,37,38,39};
+// Input driver pine
+const byte _inputPins[INPUT_LAYER_SIZE] = {24,25,26,27};
 
-uint16_t outputs[7] = {1,2,3,4,5,6,7};
-byte weights[28];
+// Output read pins
+const byte _outputPins[NEURON_COUNT] = {33,34,35,36,37,38,39};
+
+byte inputs[INPUT_LAYER_SIZE];
+uint16_t outputs[NEURON_COUNT] = {1,2,3,4,5,6,7};
+byte weights[WEIGHT_COUNT];
 
 // Set up MLP layers.  
 byte *l0w = weights;
@@ -49,7 +63,7 @@ byte *layer_1_weights_by_neuron[] = {l1w, l1w+4, l1w+8};
 NeuronLayer layer1 = { .inputsPerNeuron = 4, .neuronCount = 3, .weights = layer_1_weights_by_neuron };
 
 NeuronLayer *layers[] = { &layer0, &layer1 };
-NeuralNetwork mlp = { .layerCount = 2, .layers = layers, .weights = weights, .weightCount = 28, .neuronCount = 7 };
+NeuralNetwork mlp = { .layerCount = 2, .layers = layers, .weights = weights, .weightCount = WEIGHT_COUNT, .neuronCount = NEURON_COUNT };
 NeuralNetwork *MLP = &mlp;
 
 const byte _P0WriteCommand = P0_WRITE_COMMAND;
@@ -58,43 +72,41 @@ const byte _default_weight = 0;
 
 void setup() 
 {
-  char serialDebugBuff[100];
-  int buttonState = 0;
-  int layerIndex = 0;
-  int neuronIndex = 0;
-  int synapseIndex = -1;
- 
-  
   for (int i; i < MLP->weightCount; i++)
     weights[i] = _default_weight;
+  
+  for (int j; j < INPUT_LAYER_SIZE; j++)
+    pinMode(_outputPins[j], OUTPUT);
   
   SPI.begin();
   pinMode(CHIP_SELECT_PIN, OUTPUT);
   digitalWrite(CHIP_SELECT_PIN, HIGH);
 
 #ifdef DEBUG
-  Serial.begin(9600); // start serial for output
+  // Initialize serial communication for debugging output.
+  Serial.begin(9600);
 #endif
   
-  // initialize i2c as slave
+  // Initialize I2C communication.
   Wire.begin(SLAVE_ADDRESS);
   Wire.setClock(400000);
   
-  // define callbacks for i2c communication
   Wire.onReceive(receiveCommand);
   Wire.onRequest(sendData);
 
+  // Set ADC resolution.
   analogReadResolution(13);
 }
 
 void loop()
 {
-//  delay(1);
+  
 }
 
 void readOutputs()
 {
-  const int read_count = 2;
+  const int read_count_power_of_2 = 1;
+  const int read_count = 1 << read_count_power_of_2;
 
 #ifdef DEBUG
   Serial.println("Reading outputs:");
@@ -107,7 +119,7 @@ void readOutputs()
     for (int j = 0; j < read_count; j++)
       read += analogRead(_outputPins[i]);
       
-    outputs[i] = read >> 1;
+    outputs[i] = read >> read_count_power_of_2;
   }
 }
 
@@ -129,9 +141,13 @@ void receiveCommand(int byteCount)
     Serial.print(command);
 #endif
 
-    if (command == 0)
+    if (command == SET_WEIGHTS_CMD)
     {
-      receiveData(byteCount-1);
+      receiveWeights(byteCount-1);
+    }
+    else if (command == SET_INPUTS_CMD)
+    {
+      receiveInputs(byteCount-1);
     }
   }
 
@@ -147,7 +163,7 @@ void receiveCommand(int byteCount)
 }
 
 // callback for received data
-void receiveData(int byteCount)
+void receiveWeights(int byteCount)
 {
 #ifdef DEBUG
   Serial.println("");
@@ -156,9 +172,9 @@ void receiveData(int byteCount)
   int weightIdx = 0;
   int weightCount = MLP->weightCount;
 
-  char tempweights[28];
+  char tempweights[WEIGHT_COUNT];
 
-  Wire.read((char*)MLP->weights, 28);
+  Wire.read((char*)MLP->weights, WEIGHT_COUNT);
 
 #ifdef DEBUG
   Serial.print("Weights received: [ ");
@@ -173,7 +189,40 @@ void receiveData(int byteCount)
   setDigitalPots(MLP->weights, MLP->weightCount);
 }
 
-// callback for sending data
+void receiveInputs(int byteCount)
+{
+  // Bitmask is set to 0x80 for reading input value from MSB.
+  const byte bitMask = 0x80;
+  int inputIdx = 0;
+
+#ifdef DEBUG
+  Serial.print("Input values received: ");
+#endif
+
+  // Unpack input values from bit fields.
+  for (int i = 0; i <= INPUT_LAYER_SIZE/8; i++)
+  {    
+    byte data = Wire.read();
+
+    for (int j = 0; j < 8 && inputIdx < INPUT_LAYER_SIZE; j++)
+    {
+      // Write input value to the appropriate pin.
+      digitalWrite(_outputPins[inputIdx++], (data & bitMask == 0 ? LOW : HIGH));
+
+#ifdef DEBUG
+      Serial.print(data & bitMask);
+      Serial.print(" ");
+#endif
+
+      data <<= 1;
+    }     
+  }
+
+#ifdef DEBUG
+  Serial.println("");
+#endif
+}
+
 void sendData()
 {
   readOutputs();
@@ -196,7 +245,7 @@ void sendData()
 
 void setDigitalPots(byte data[], int length)
 {
-  // Write all of the values for the P0 pots
+  // Write all of the values for the P0 pots.
   SPI.beginTransaction(SPISettings(SPI_CLOCK_RATE, MSBFIRST, SPI_MODE0));
   digitalWrite(CHIP_SELECT_PIN, LOW);
   for (int i = 0; i < length; i += 2)
@@ -207,7 +256,7 @@ void setDigitalPots(byte data[], int length)
   digitalWrite(CHIP_SELECT_PIN, HIGH);
   SPI.endTransaction();
 
-//   Write all of the values for the P1 pots
+  // Write all of the values for the P1 pots.
   SPI.beginTransaction(SPISettings(SPI_CLOCK_RATE, MSBFIRST, SPI_MODE0));
   digitalWrite(CHIP_SELECT_PIN, LOW);
   for (int j = 1; j < length; j += 2)

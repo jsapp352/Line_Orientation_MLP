@@ -1,5 +1,3 @@
-
-
 # A module that provides an interface between a software MLP model
 #  and an LTspice hardware simulation.
 
