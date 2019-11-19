@@ -26,7 +26,11 @@ class MLP_Circuit():
     
     def update_synaptic_weights(self):
 
+        #print(f'Network weights {[x.synaptic_weights for x in self.neural_network.neuron_layers]}')
+
         weights = [self.calculate_layer_weights(x) for x in self.neural_network.neuron_layers]
+
+        #print(f'Calculated weights {weights}')
 
         self.link.set_weights(weights)
     

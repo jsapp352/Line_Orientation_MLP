@@ -35,11 +35,11 @@ class MLPLink:
                 for j in range(len(layer_weights)):
                     data.append(layer_weights[j][i])
             
-        #print(weights)
+        #print(f'Flattened weights: {data}')
         
         data.insert(0, self.commands['set_weights'])
 
-        #print(data)
+        #print(f'Sending weights {data}\n')
 
         msg  = i2c_msg.write(self.mcu_addr, data)
         
@@ -47,6 +47,8 @@ class MLPLink:
             bus.i2c_rdwr(msg)
     
     def set_inputs(self, inputs):
+
+        #print(f'I2CMLP.set_inputs() inputs: {inputs}')
 
         data = list(np.packbits(inputs))
 
@@ -71,6 +73,6 @@ class MLPLink:
         with SMBus(1) as bus:
             while any([x > max_adc for x in outputs]):
                 bus.i2c_rdwr(read)
-                outputs = [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
+                outputs = [max_adc - int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
 
         return outputs

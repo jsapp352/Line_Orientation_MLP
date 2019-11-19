@@ -44,10 +44,10 @@ typedef struct NeuralNetwork {
 } NeuralNetwork;
 
 // Input driver pine
-const byte _inputPins[INPUT_LAYER_SIZE] = {24,25,26,27};
+const byte _inputDriverPins[INPUT_LAYER_SIZE] = {24,25,26,27};
 
 // Output read pins
-const byte _outputPins[NEURON_COUNT] = {33,34,35,36,37,38,39};
+const byte _outputReadPins[NEURON_COUNT] = {33,34,35,36,37,38,39};
 
 byte inputs[INPUT_LAYER_SIZE];
 uint16_t outputs[NEURON_COUNT] = {1,2,3,4,5,6,7};
@@ -76,7 +76,10 @@ void setup()
     weights[i] = _default_weight;
   
   for (int j; j < INPUT_LAYER_SIZE; j++)
-    pinMode(_outputPins[j], OUTPUT);
+  {
+    pinMode(_inputDriverPins[j], OUTPUT);
+    digitalWrite(_inputDriverPins[j], HIGH);
+  }
   
   SPI.begin();
   pinMode(CHIP_SELECT_PIN, OUTPUT);
@@ -105,7 +108,7 @@ void loop()
 
 void readOutputs()
 {
-  const int read_count_power_of_2 = 1;
+  const int read_count_power_of_2 = 3;
   const int read_count = 1 << read_count_power_of_2;
 
 #ifdef DEBUG
@@ -117,7 +120,7 @@ void readOutputs()
   {
     uint16_t read = 0;
     for (int j = 0; j < read_count; j++)
-      read += analogRead(_outputPins[i]);
+      read += analogRead(_outputReadPins[i]);
       
     outputs[i] = read >> read_count_power_of_2;
   }
@@ -196,6 +199,7 @@ void receiveInputs(int byteCount)
   int inputIdx = 0;
 
 #ifdef DEBUG
+  Serial.println("");
   Serial.print("Input values received: ");
 #endif
 
@@ -207,10 +211,10 @@ void receiveInputs(int byteCount)
     for (int j = 0; j < 8 && inputIdx < INPUT_LAYER_SIZE; j++)
     {
       // Write input value to the appropriate pin.
-      digitalWrite(_outputPins[inputIdx++], (data & bitMask == 0 ? LOW : HIGH));
+      digitalWrite(_inputDriverPins[inputIdx++], ((data & bitMask) == 0 ? LOW : HIGH));
 
 #ifdef DEBUG
-      Serial.print(data & bitMask);
+      Serial.print((data & bitMask) == 0 ? LOW : HIGH);
       Serial.print(" ");
 #endif
 
