@@ -220,7 +220,20 @@ void receiveInputs(int byteCount)
     for (int j = 0; j < 8 && inputIdx < INPUT_LAYER_SIZE; j++)
     {
       // Write input value to the appropriate pin.
-      digitalWrite(_inputDriverPins[inputIdx++], ((data & bitMask) == 0 ? LOW : HIGH));
+//      digitalWrite(_inputDriverPins[inputIdx++], ((data & bitMask) == 0 ? LOW : HIGH));
+
+      if ((data & bitMask) != 0)
+      {
+        pinMode(_inputDriverPins[inputIdx], OUTPUT);
+        digitalWrite(_inputDriverPins[inputIdx++], HIGH);
+      }
+      else
+      {
+        // This should leave the pin in a floating state so that it can be pulled to 
+        //   0V ground (Vss + 1.65V for the Teensy) through the pulldown resistor.
+        digitalWrite(_inputDriverPins[inputIdx++], LOW);
+        pinMode(_inputDriverPins[inputIdx++], INPUT);
+      }
 
 #ifdef DEBUG
       Serial.print((data & bitMask) == 0 ? LOW : HIGH);

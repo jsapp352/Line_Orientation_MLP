@@ -9,7 +9,7 @@ import numpy as np
 import os
 import sys
 from numpy import exp, array, random, dot, argmax
-from pprint import pprint
+from pprint import pprint, pformat
 
 
 parser = argparse.ArgumentParser(
@@ -41,8 +41,8 @@ _validate_by_software_model = False
 _validation_iterations = 16
 _validation_tick_interval = 2
 
-_max_weight = 10.0
-_learning_rate = 0.05
+_max_weight = 1.0
+_learning_rate = 0.01
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -107,7 +107,7 @@ def activation_test():
 
     input_tensors = [(x * np.ones((1, input_count)))[0] for x in inputs]
 
-    print(input_tensors[0])
+    # print(input_tensors[0])
 
     outputs = neural_network.think(array(input_tensors))[0]
 
@@ -126,7 +126,8 @@ class NeuronLayer():
         self.max_weight = _max_weight
         
         if starting_weights is None:            
-            self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 1.0
+            # self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 0.5
+            self.synaptic_weights = random.normal(size=(number_of_inputs_per_neuron, number_of_neurons), scale=(self.inputs_per_neuron**-0.5))
         else:
             self.synaptic_weights = starting_weights
 
@@ -136,19 +137,25 @@ class NeuronLayer():
         self.synaptic_weights += adjustments * _learning_rate
         abs_weights = np.abs(self.synaptic_weights)
         if (abs_weights > max_weight).any():
-            self.synaptic_weights *= _max_weight / (abs_weights).max()
+            self.synaptic_weights *= max_weight / (abs_weights).max()
 
 class NeuralNetwork():
     def __init__(self, neuron_layers):
         self.neuron_layers = neuron_layers
+
+        # self.activation_function = self.sigmoid
+        # self.activation_derivative = self.sigmoid_derivative
+
+        self.activation_function = self.tanh
+        self.activation_derivative = self.tanh_derivative
         
         self.ckt = MLP_Circuit(self)
-
-    def activation_function(self, x):
-        return self.sigmoid(x)
-
-    def activation_derivative(self, x):
-        return self.sigmoid_derivative(x)
+    
+    def tanh(self, x):
+        return np.tanh(x+1.0)
+    
+    def tanh_derivative(self, x):
+        return 1.0 - np.tanh(x)**2
 
     def relu(self, x):
         return x * (x > 0)
@@ -173,7 +180,7 @@ class NeuralNetwork():
 
     # We train the neural network through a process of trial and error.
     # Adjusting the synaptic weights each time.
-    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations):
+    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations, minimum_accuracy):
         batch_size = _args.training_batch_size
         layers = self.neuron_layers
 
@@ -191,7 +198,7 @@ class NeuralNetwork():
         for iteration in range(number_of_training_iterations):
             # Shuffle the training set
             data_set_size = training_set_inputs.shape[0]
-            indices = np.random.permutation(data_set_size)[0:batch_size]
+            indices = np.asarray([x for x in range(data_set_size)])# np.random.permutation(data_set_size)[0:batch_size]
             # print(indices)
             training_set_inputs = training_set_inputs[indices]
             training_set_outputs = training_set_outputs[indices]
@@ -233,8 +240,6 @@ class NeuralNetwork():
             for layer in layers:
                 layer.adjust_weights(adjustments[layer])
 
-            self.ckt.update_synaptic_weights()
-
             # Validate results
             if iteration % validation_tick_interval == 0:
                 accuracy = self.validate(
@@ -245,6 +250,9 @@ class NeuralNetwork():
 
                 accuracy_by_epoch[0].append(iteration)
                 accuracy_by_epoch[1].append(accuracy)
+
+                if accuracy >= minimum_accuracy:
+                    return accuracy_by_epoch
 
             print(f'Epoch {iteration}: {accuracy}')
 
@@ -301,6 +309,8 @@ class NeuralNetwork():
         # print('Think() inputs.tolist():')
         # pprint(inputs.tolist())
         # print('\n')
+
+        self.ckt.update_synaptic_weights()
         
         output_tensors = [[] for i in range(0, len(self.neuron_layers))]
         
@@ -322,7 +332,7 @@ class NeuralNetwork():
         input_tensors.append(inputs)
 
         for i in range(0, len(layers)):
-            output = self.activation_function(dot(input_tensors[i] * 2 - 0.2, layers[i].synaptic_weights))
+            output = self.activation_function(dot(input_tensors[i], layers[i].synaptic_weights))
 
             output_tensors.append(output)
             input_tensors.append(output)
@@ -340,7 +350,7 @@ class NeuralNetwork():
         for i in range(0, len(layers)):
             layer = layers[i]
             lines.append(f'Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs):\n')
-            lines.append(f'{layer.synaptic_weights}\n')
+            lines.append(f'{pformat(layer.synaptic_weights.tolist(), width=100)}\n')
         
         for x in lines:
             print(x)
@@ -389,27 +399,139 @@ if __name__ == "__main__":
     else:
         # The standard training set. We have 7 examples, each consisting of 3 input values
         # and 1 output value.
-        training_set_inputs = array(
+        training_set_inputs_sig = array(
             [
-                [1, 0, 1, 0], #V
-                [0, 1, 0, 1], #V
-                [1, 1, 0, 0], #H
-                [0, 0, 1, 1], #H
-                [1, 0, 0, 1], #D
-                [0, 1, 1, 0]  #D
+                [0, 1, 0, 1],  # V
+                [1, 0, 1, 0],  # V
+                [0, 0, 1, 1],  # H
+                [1, 1, 0, 0],  # H
+                [0, 1, 1, 0],  # D
+                [1, 0, 0, 1],  # D
             ]
         )
 
-        training_set_outputs = array(
+        training_set_inputs_tanh = array(
             [
-                [1, 0, 0], #V
-                [1, 0, 0], #V
-                [0, 1, 0], #H
-                [0, 1, 0], #H
-                [0, 0, 1], #D
-                [0, 0, 1]  #D
+                [-1,  1, -1,  1],  # V
+                [ 1, -1,  1, -1],  # V
+                [-1, -1,  1,  1],  # H
+                [ 1,  1, -1, -1],  # H
+                [-1,  1,  1, -1],  # D
+                [ 1, -1, -1,  1],  # D
             ]
         )
+
+        training_set_outputs_sig = array(
+            [
+                [1, 0, 0],  # V
+                [1, 0, 0],  # V
+                [0, 1, 0],  # H
+                [0, 1, 0],  # H
+                [0, 0, 1],  # D
+                [0, 0, 1]   # D
+            ]
+        )
+
+        training_set_outputs_tanh = array(
+            [
+                [1, -1, -1,],  # V
+                [1, -1, -1,],  # V
+                [-1,  1, -1],  # H
+                [-1,  1, -1],  # H
+                [-1, -1,  1],  # D
+                [-1, -1,  1]   # D
+            ]
+        )
+
+        training_set_inputs_sig4 = array(
+            [
+                [0, 1, 0, 1],  # V
+                [1, 0, 1, 0],  # V
+                [0, 0, 1, 1],  # H
+                [1, 1, 0, 0],  # H
+                [0, 1, 1, 0],  # D
+                [1, 0, 0, 1],  # D
+                [0, 0, 0, 0],
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+                [0, 1, 0, 0],
+                [0, 1, 1, 1],
+                [1, 0, 0, 0],
+                [1, 0, 1, 1],
+                [1, 1, 0, 1],
+                [1, 1, 1, 0],
+                [1, 1, 1, 1]
+            ]
+        )
+
+        training_set_inputs_tanh4 = array(
+            [
+                [-1,  1, -1,  1],  # V
+                [ 1, -1,  1, -1],  # V
+                [-1, -1,  1,  1],  # H
+                [ 1,  1, -1, -1],  # H
+                [-1,  1,  1, -1],  # D
+                [ 1, -1, -1,  1],  # D
+                [-1, -1, -1, -1],
+                [-1, -1, -1,  1],
+                [-1, -1,  1, -1],
+                [-1,  1, -1, -1],
+                [-1,  1,  1,  1],
+                [ 1, -1, -1, -1],
+                [ 1, -1,  1,  1],
+                [ 1,  1, -1,  1],
+                [ 1,  1,  1, -1],
+                [ 1,  1,  1,  1]
+            ]
+        )
+
+        training_set_outputs_sig4 = array(
+        [
+            [1, 0, 0, 0],  # V
+            [1, 0, 0, 0],  # V
+            [0, 1, 0, 0],  # H
+            [0, 1, 0, 0],  # H
+            [0, 0, 1, 0],  # D
+            [0, 0, 1, 0],  # D
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 1]
+        ]
+        )
+
+        training_set_outputs_tanh4 = array(
+            [
+                [ 1, -1, -1, -1],  # V
+                [ 1, -1, -1, -1],  # V
+                [-1,  1, -1, -1],  # H
+                [-1,  1, -1, -1],  # H
+                [-1, -1,  1, -1],  # D
+                [-1, -1,  1, -1],  # D
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1],
+                [-1, -1, -1,  1]
+            ]
+        )
+
+        training_set_inputs = training_set_inputs_sig
+        training_set_outputs = training_set_outputs_sig
+
+        # training_set_inputs = training_set_inputs_tanh
+        training_set_outputs = training_set_outputs_tanh
 
         # In this case, training data and validation data are the same
         validation_set_inputs, validation_set_outputs = training_set_inputs, training_set_outputs
@@ -417,7 +539,8 @@ if __name__ == "__main__":
     prediction_labels = {
         0 : "Vertical",
         1 : "Horizontal",
-        2 : "Diagonal"
+        2 : "Diagonal",
+        3 : "None"
     }
 
     # starting_weights = [
@@ -458,29 +581,40 @@ if __name__ == "__main__":
     # Neuron count for each hidden layer
     hidden_layer_sizes = [4]
 
-    # Create neuron layers (M neurons, each with N inputs)
-    #  (M for layer x must equal N for layer x+1)
-    layer_dimensions = zip(
-        hidden_layer_sizes + [len(training_set_outputs[0])], 
-        [len(training_set_inputs[0])] + hidden_layer_sizes,
-        starting_weights)
+    minimum_accuracy = 199.0
 
-    neuron_layers = [NeuronLayer(y, x) for y, x, w in layer_dimensions]
+    accuracy_by_epoch = [[1], [0.0]]
+    while accuracy_by_epoch[1][-1] < minimum_accuracy:
 
-    # Combine the layers to create a neural network
-    neural_network = NeuralNetwork(neuron_layers)
+        # Create neuron layers (M neurons, each with N inputs)
+        #  (M for layer x must equal N for layer x+1)
+        layer_dimensions = zip(
+            hidden_layer_sizes + [len(training_set_outputs[0])], 
+            [len(training_set_inputs[0])] + hidden_layer_sizes,
+            starting_weights)
 
-    print("Stage 1) Random starting synaptic weights: ")
-    neural_network.print_weights()
 
-    # Train the neural network for a specified number of epochs using the training set.
-    accuracy_by_epoch = neural_network.train(
-        training_set_inputs,
-        training_set_outputs,
-        validation_set_inputs,
-        validation_set_outputs,
-         _args.epochs
-    )
+        neuron_layers = [NeuronLayer(y, x) for y, x, w in layer_dimensions]
+
+        # Combine the layers to create a neural network
+        neural_network = NeuralNetwork(neuron_layers)
+
+        print("Stage 1) Random starting synaptic weights: ")
+        neural_network.print_weights()
+
+        # Train the neural network for a specified number of epochs using the training set.
+        accuracy_by_epoch = neural_network.train(
+            training_set_inputs,
+            training_set_outputs,
+            validation_set_inputs,
+            validation_set_outputs,
+            _args.epochs,
+            minimum_accuracy
+        )
+
+        print(f'{accuracy_by_epoch[0][-1]}: {accuracy_by_epoch[1][-1]}')
+
+        break
 
     # print("Stage 2) New synaptic weights after training: ")
     # neural_network.print_weights()
@@ -493,6 +627,8 @@ if __name__ == "__main__":
         ticks = ["X" if x > 0.5 else " " for x in input_set]
 
         outputs = neural_network.think(array([input_set]))
+
+        print(outputs[-1][0])
         # probs = softmax([outputs[-1]])
         preds = np.argmax([outputs[-1][0]],axis=1)
 

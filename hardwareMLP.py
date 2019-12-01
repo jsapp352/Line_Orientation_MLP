@@ -20,17 +20,17 @@ class MLP_Circuit():
         self.input_sources = []
 
     def calculate_layer_weights(self, layer):
-        calculate_pos = lambda weight: min(_pot_tap_count-1, max(1, int((weight / layer.max_weight + 1) / 2 * _pot_tap_count))) 
+        calculate_pos = lambda weight: min(_pot_tap_count-1, max(1, int((weight / layer.max_weight + 1) / 2 * _pot_tap_count / 2 + 64)))
 
         return [[calculate_pos(x) for x in y] for y in layer.synaptic_weights]
     
     def update_synaptic_weights(self):
 
-#        print(f'Network weights {[x.synaptic_weights for x in self.neural_network.neuron_layers]}')
+        # print(f'Network weights {[x.synaptic_weights for x in self.neural_network.neuron_layers]}')
 
         weights = [self.calculate_layer_weights(x) for x in self.neural_network.neuron_layers]
 
-#        print(f'Calculated weights {weights}')
+        # print(f'Calculated weights {weights}')
 
         self.link.set_weights(weights)
     
@@ -38,7 +38,7 @@ class MLP_Circuit():
 
         inputs = input_array.tolist()
 
-#        print(inputs)
+        # print(inputs)
 
         self.link.set_inputs(inputs)
 
@@ -56,7 +56,7 @@ class MLP_Circuit():
                 layer_outputs.append(data[idx])
                 idx += 1
             
-            outputs.append((np.asarray(layer_outputs) / self.link.max_adc))
+            outputs.append((np.asarray(layer_outputs) / self.link.max_adc) * 2 - 1)
         
         return np.asarray(outputs)
 

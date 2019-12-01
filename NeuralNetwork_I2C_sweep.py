@@ -51,8 +51,9 @@ def main():
                 for idx in range(len(synapse)):
                     synapse[idx] = -layer.max_weight + ticks*tick_size
                 print(layer.synaptic_weights)
-            
-                outputs = MLP.think([np.array(np.array([1,0,0,0]))])
+
+                MLP.ckt.update_synaptic_weights()            
+                outputs = MLP.think([np.array(np.array([1,1,1,1]))])
                 ideal_outputs = MLP.software_think(np.array(np.array([128,128,128,128])))
             
                 idx = start_idx
