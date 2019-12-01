@@ -44,7 +44,7 @@ typedef struct NeuralNetwork {
 } NeuralNetwork;
 
 // Input driver pine
-const byte _inputDriverPins[INPUT_LAYER_SIZE] = {24,25,26,27};
+const byte _inputDriverPins[INPUT_LAYER_SIZE] = {25,26,27,28};
 
 // Output read pins
 const byte _outputReadPins[NEURON_COUNT] = {33,34,35,36,37,38,39};
@@ -123,7 +123,16 @@ void readOutputs()
       read += analogRead(_outputReadPins[i]);
       
     outputs[i] = read >> read_count_power_of_2;
+    
+#ifdef DEBUG
+    Serial.print(" ");
+    Serial.print(outputs[i]);
+#endif
   }
+
+#ifdef DEBUG
+   Serial.println("");
+#endif
 }
 
 void receiveCommand(int byteCount)

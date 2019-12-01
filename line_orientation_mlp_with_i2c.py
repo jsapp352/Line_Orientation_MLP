@@ -42,7 +42,7 @@ _validation_iterations = 16
 _validation_tick_interval = 2
 
 _max_weight = 10.0
-_learning_rate = 1.0
+_learning_rate = 0.05
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -232,6 +232,8 @@ class NeuralNetwork():
             # Adjust the weights.
             for layer in layers:
                 layer.adjust_weights(adjustments[layer])
+
+            self.ckt.update_synaptic_weights()
 
             # Validate results
             if iteration % validation_tick_interval == 0:
@@ -451,6 +453,7 @@ if __name__ == "__main__":
         )
     ]
 
+    starting_weights = [None, None]
 
     # Neuron count for each hidden layer
     hidden_layer_sizes = [4]

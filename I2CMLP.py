@@ -73,6 +73,8 @@ class MLPLink:
         with SMBus(1) as bus:
             while any([x > max_adc for x in outputs]):
                 bus.i2c_rdwr(read)
-                outputs = [max_adc - int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
+                outputs = [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
+
+#        print(outputs)
 
         return outputs
