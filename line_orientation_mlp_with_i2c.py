@@ -42,7 +42,8 @@ _validation_iterations = 16
 _validation_tick_interval = 2
 
 _max_weight = 1.0
-_learning_rate = 0.01
+_learning_rate = 0.04
+# _learning_rate = 0.01
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -152,7 +153,7 @@ class NeuralNetwork():
         self.ckt = MLP_Circuit(self)
     
     def tanh(self, x):
-        return np.tanh(x+1.0)
+        return np.tanh(x)
     
     def tanh_derivative(self, x):
         return 1.0 - np.tanh(x)**2
@@ -386,7 +387,8 @@ def load_data(filename):
 if __name__ == "__main__":
 
     #Seed the random number generator
-    # random.seed(2)
+    random.seed(5) # HW setting
+    # random.seed(8) # SW setting
 
     if _args.activation_test:
         activation_test()
