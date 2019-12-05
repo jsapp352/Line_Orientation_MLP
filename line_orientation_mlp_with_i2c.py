@@ -42,8 +42,8 @@ _validation_iterations = 16
 _validation_tick_interval = 2
 
 _max_weight = 1.0
-_learning_rate = 0.04
-# _learning_rate = 0.01
+# _learning_rate = 0.04
+_learning_rate = 0.01
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -344,7 +344,7 @@ class NeuralNetwork():
         return output_tensors
 
     # The neural network prints its weights
-    def print_weights(self):
+    def print_weights(self, filename=None):
         layers = self.neuron_layers
         lines = []
 
@@ -356,8 +356,9 @@ class NeuralNetwork():
         for x in lines:
             print(x)
         
-        with open('starting_weights.txt', 'w') as f:
-            f.writelines(lines)
+        if filename != None:
+            with open(filename, 'w') as f:
+                f.writelines(lines)
 
 def load_data(filename):
     output_dict = {
@@ -602,7 +603,7 @@ if __name__ == "__main__":
         neural_network = NeuralNetwork(neuron_layers)
 
         print("Stage 1) Random starting synaptic weights: ")
-        neural_network.print_weights()
+        neural_network.print_weights('starting_weights.txt')
 
         # Train the neural network for a specified number of epochs using the training set.
         accuracy_by_epoch = neural_network.train(
@@ -618,8 +619,8 @@ if __name__ == "__main__":
 
         break
 
-    # print("Stage 2) New synaptic weights after training: ")
-    # neural_network.print_weights()
+    print("Stage 2) New synaptic weights after training: ")
+    neural_network.print_weights()
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)
