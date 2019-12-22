@@ -2,7 +2,15 @@
 #include <i2c_t3.h>
 
 // Comment out this #define to disable debugging output
-//#define DEBUG 0
+//#define DEBUG
+
+#ifdef DEBUG
+  #define DEBUG_PRINT(X) Serial.print(X); Serial.flush()
+  #define DEBUG_PRINTLN(X) Serial.println(X); Serial.flush()
+#else
+  #define DEBUG_PRINT(X)
+  #define DEBUG_PRINTLN(X)
+#endif
 
 // Neural network dimensions
 #define NEURON_COUNT 7
@@ -111,10 +119,7 @@ void readOutputs()
   const int read_count_power_of_2 = 3;
   const int read_count = 1 << read_count_power_of_2;
 
-#ifdef DEBUG
-  Serial.println("Reading outputs:");
-  Serial.flush();
-#endif
+  DEBUG_PRINTLN("Reading outputs:");
     
   for (int i = 0; i < MLP->neuronCount; i++)
   {
@@ -124,34 +129,25 @@ void readOutputs()
       
     outputs[i] = read >> read_count_power_of_2;
     
-#ifdef DEBUG
-    Serial.print(" ");
-    Serial.print(outputs[i]);
-#endif
+    DEBUG_PRINT(" ");
+    DEBUG_PRINT(outputs[i]);
   }
 
-#ifdef DEBUG
-   Serial.println("");
-#endif
+  DEBUG_PRINTLN("");
 }
 
 void receiveCommand(int byteCount)
 {  
-#ifdef DEBUG
-  Serial.print("Bytes received: ");
-  Serial.print(byteCount);
-  Serial.println("");
-  Serial.flush();
-#endif
+  DEBUG_PRINT("Bytes received: ");
+  DEBUG_PRINT(byteCount);
+  DEBUG_PRINTLN("");
   
   if(Wire.available())
   {
     int command = Wire.read();
 
-#ifdef DEBUG
-    Serial.print("Command received: ");
-    Serial.print(command);
-#endif
+    DEBUG_PRINT("Command received: ");
+    DEBUG_PRINT(command);
 
     if (command == SET_WEIGHTS_CMD)
     {
@@ -166,20 +162,18 @@ void receiveCommand(int byteCount)
 #ifdef DEBUG
   while(Wire.available())
   {
-    Serial.print(" ");
-    Serial.print(Wire.read());
+    DEBUG_PRINT(" ");
+    DEBUG_PRINT(Wire.read());
   }
 
-  Serial.println("");
+  DEBUG_PRINTLN("");
 #endif
 }
 
 // callback for received data
 void receiveWeights(int byteCount)
 {
-#ifdef DEBUG
-  Serial.println("");
-#endif
+  DEBUG_PRINTLN("");
   
   int weightIdx = 0;
   int weightCount = MLP->weightCount;
@@ -189,13 +183,13 @@ void receiveWeights(int byteCount)
   Wire.read((char*)MLP->weights, WEIGHT_COUNT);
 
 #ifdef DEBUG
-  Serial.print("Weights received: [ ");
+  DEBUG_PRINT("Weights received: [ ");
   for (int i = 0; i < weightCount; i++)
   {
-    Serial.print(MLP->weights[i]);
-    Serial.print( i < (weightCount-1) ? ", " : " ]");
+    DEBUG_PRINT(MLP->weights[i]);
+    DEBUG_PRINT( i < (weightCount-1) ? ", " : " ]");
   }
-  Serial.println("");
+  DEBUG_PRINTLN("");
 #endif
 
   setDigitalPots(MLP->weights, MLP->weightCount);
@@ -207,10 +201,8 @@ void receiveInputs(int byteCount)
   const byte bitMask = 0x80;
   int inputIdx = 0;
 
-#ifdef DEBUG
-  Serial.println("");
-  Serial.print("Input values received: ");
-#endif
+  DEBUG_PRINTLN("");
+  DEBUG_PRINT("Input values received: ");
 
   // Unpack input values from bit fields.
   for (int i = 0; i <= INPUT_LAYER_SIZE/8; i++)
@@ -235,18 +227,14 @@ void receiveInputs(int byteCount)
         pinMode(_inputDriverPins[inputIdx++], INPUT);
       }
 
-#ifdef DEBUG
-      Serial.print((data & bitMask) == 0 ? LOW : HIGH);
-      Serial.print(" ");
-#endif
+      DEBUG_PRINT((data & bitMask) == 0 ? LOW : HIGH);
+      DEBUG_PRINT(" ");
 
       data <<= 1;
     }     
   }
 
-#ifdef DEBUG
-  Serial.println("");
-#endif
+  DEBUG_PRINTLN("");
 }
 
 void sendData()
@@ -257,13 +245,13 @@ void sendData()
   int outputCount = 2 * sizeof(outputs)/sizeof(outputs[0]);
 
 #ifdef DEBUG
-  Serial.print("Sending output bytes: [ ");
+  DEBUG_PRINT("Sending output bytes: [ ");
   for (int i = 0; i < outputCount; i++)
   {
-    Serial.print((int)(bytes[i]));
-    Serial.print( i < (outputCount-1) ? ", " : " ]");
+    DEBUG_PRINT((int)(bytes[i]));
+    DEBUG_PRINT( i < (outputCount-1) ? ", " : " ]");
   }
-  Serial.println("");
+  DEBUG_PRINTLN("");
 #endif
       
   Wire.write((char*)outputs, outputCount);
