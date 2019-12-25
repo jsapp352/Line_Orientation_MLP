@@ -236,7 +236,7 @@ void receiveInputsForShiftRegister(int byteCount)
   }
 
   //TODO Adjust or remove this delay once pulldown/pullup resistor values are finalized.
-//  delay(10);
+//  delayMicroseconds(100);
   
   DEBUG_PRINTLN("");
 
