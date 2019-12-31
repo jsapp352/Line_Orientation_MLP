@@ -42,8 +42,8 @@ _validation_iterations = 16
 _validation_tick_interval = 2
 
 _max_weight = 1.0
-_learning_rate = 0.04
-# _learning_rate = 0.01
+# _learning_rate = 0.04
+_learning_rate = 0.01
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -127,10 +127,12 @@ class NeuronLayer():
         self.max_weight = _max_weight
         
         if starting_weights is None:            
-            # self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) * 0.5
-            self.synaptic_weights = random.normal(size=(number_of_inputs_per_neuron, number_of_neurons), scale=(self.inputs_per_neuron**-0.5))
+            self.set_random_starting_weights()    
         else:
             self.synaptic_weights = starting_weights
+    
+    def set_random_starting_weights(self):
+        self.synaptic_weights = random.normal(size=(self.inputs_per_neuron, self.neuron_count), scale=(self.inputs_per_neuron**-0.5))
 
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
@@ -178,14 +180,19 @@ class NeuralNetwork():
     # It indicates how confident we are about the existing weight.
     def sigmoid_derivative(self, x):
         return x * (1 - x)
+    
+    def reset_random_starting_weights(self):
+        for x in self.neuron_layers:
+            x.set_random_starting_weights()
 
     # We train the neural network through a process of trial and error.
     # Adjusting the synaptic weights each time.
-    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations, minimum_accuracy):
+    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations, minimum_accuracy, minimum_output_difference):
         batch_size = _args.training_batch_size
         layers = self.neuron_layers
 
         accuracy_by_epoch = ([], [])
+        output_difference = 0
         
         validation_iterations = _validation_iterations
         validation_tick_interval = _validation_tick_interval
@@ -243,7 +250,7 @@ class NeuralNetwork():
 
             # Validate results
             if iteration % validation_tick_interval == 0:
-                accuracy = self.validate(
+                accuracy, output_difference = self.validate(
                     validation_set_inputs,
                     validation_set_outputs,
                     validation_data_indices
@@ -252,12 +259,12 @@ class NeuralNetwork():
                 accuracy_by_epoch[0].append(iteration)
                 accuracy_by_epoch[1].append(accuracy)
 
-                if accuracy >= minimum_accuracy:
-                    return accuracy_by_epoch
+                if accuracy >= minimum_accuracy and output_difference >= minimum_output_difference:
+                    return accuracy_by_epoch, output_difference
 
-            print(f'Epoch {iteration}: {accuracy}')
+            print(f'Epoch {iteration}: {accuracy:3.5}, minimum difference: {output_difference:2.5}')
 
-        return accuracy_by_epoch
+        return accuracy_by_epoch, output_difference
 
     def validate(self, test_inputs, test_outputs, indices):
         
@@ -265,23 +272,27 @@ class NeuralNetwork():
 
         correct_predictions = 0
 
+        minimum_output_difference = float('inf')
+
         for index in indices:
             if validate_by_software_model:
                 outputs = self.software_think(array([test_inputs[index]]))
             else:
                 outputs = self.think(array([test_inputs[index]]))
-
             # print([outputs[-1]])
             # probabilities = softmax([outputs[-1]])
             prediction = np.argmax(outputs[-1],axis=1)[0]
+
             # print(f"{prediction}: {test_outputs[index]}")
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
+                pred_output = outputs[-1][0][prediction]
+                minimum_output_difference = min(minimum_output_difference, min([abs(x - pred_output) for i,x in enumerate(outputs[-1][0]) if i!=prediction]))
 
         # print(f'Training accuracy: {correct_predictions / len(indices) * 100.0}')
 
-        return correct_predictions / len(indices) * 100.0
+        return correct_predictions / len(indices) * 100.0, minimum_output_difference
 
     def think(self, inputs):
         use_software_model = _args.software_model
@@ -344,7 +355,7 @@ class NeuralNetwork():
         return output_tensors
 
     # The neural network prints its weights
-    def print_weights(self):
+    def print_weights(self, filename=None):
         layers = self.neuron_layers
         lines = []
 
@@ -356,8 +367,9 @@ class NeuralNetwork():
         for x in lines:
             print(x)
         
-        with open('starting_weights.txt', 'w') as f:
-            f.writelines(lines)
+        if filename != None:
+            with open(filename, 'w') as f:
+                f.writelines(lines)
 
 def load_data(filename):
     output_dict = {
@@ -387,8 +399,8 @@ def load_data(filename):
 if __name__ == "__main__":
 
     #Seed the random number generator
-    random.seed(5) # HW setting
-    # random.seed(8) # SW setting
+    starting_seed = 1 # HW setting
+    #starting_seed = 8 # SW setting
 
     if _args.activation_test:
         activation_test()
@@ -583,10 +595,14 @@ if __name__ == "__main__":
     # Neuron count for each hidden layer
     hidden_layer_sizes = [4]
 
-    minimum_accuracy = 199.0
+    minimum_accuracy = 100.0
+    minimum_output_difference = 0.5
 
     accuracy_by_epoch = [[1], [0.0]]
-    while accuracy_by_epoch[1][-1] < minimum_accuracy:
+
+    for seed in range(starting_seed, starting_seed+100):
+
+        random.seed(seed)
 
         # Create neuron layers (M neurons, each with N inputs)
         #  (M for layer x must equal N for layer x+1)
@@ -602,24 +618,26 @@ if __name__ == "__main__":
         neural_network = NeuralNetwork(neuron_layers)
 
         print("Stage 1) Random starting synaptic weights: ")
-        neural_network.print_weights()
+        neural_network.print_weights('starting_weights.txt')
 
         # Train the neural network for a specified number of epochs using the training set.
-        accuracy_by_epoch = neural_network.train(
+        accuracy_by_epoch, output_difference = neural_network.train(
             training_set_inputs,
             training_set_outputs,
             validation_set_inputs,
             validation_set_outputs,
             _args.epochs,
-            minimum_accuracy
+            minimum_accuracy,
+            minimum_output_difference
         )
 
         print(f'{accuracy_by_epoch[0][-1]}: {accuracy_by_epoch[1][-1]}')
 
-        break
+        if accuracy_by_epoch[1][-1] >= minimum_accuracy and output_difference >= minimum_output_difference:
+            break
 
-    # print("Stage 2) New synaptic weights after training: ")
-    # neural_network.print_weights()
+    print("Stage 2) New synaptic weights after training: ")
+    neural_network.print_weights()
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)

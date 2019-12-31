@@ -2,7 +2,7 @@
 #include <i2c_t3.h>
 
 // Comment out this #define to disable debugging output
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
   #define DEBUG_PRINT(X) Serial.print(X); Serial.flush()
@@ -25,6 +25,11 @@
 #define SET_WEIGHTS_CMD 0x02
 #define SET_INPUTS_CMD 0x03
 #define READ_OUTPUTS_CMD 0x04
+
+// Shift register input macros
+
+#define INPUT_SPI SPI1
+#define INPUT_LATCH_PIN 31
 
 // Digital pot macros
 
@@ -51,7 +56,7 @@ typedef struct NeuralNetwork {
    int neuronCount;
 } NeuralNetwork;
 
-// Input driver pine
+// Input driver pins
 const byte _inputDriverPins[INPUT_LAYER_SIZE] = {25,26,27,28};
 
 // Output read pins
@@ -78,20 +83,25 @@ const byte _P0WriteCommand = P0_WRITE_COMMAND;
 const byte _P1WriteCommand = P1_WRITE_COMMAND;
 const byte _default_weight = 0;
 
+SPISettings _digipotSPISettings = SPISettings(SPI_CLOCK_RATE, MSBFIRST, SPI_MODE0);
+SPISettings _inputDriverSPISettings = SPISettings(SPI_CLOCK_RATE, LSBFIRST, SPI_MODE0);
+
 void setup() 
-{
+{  
   for (int i; i < MLP->weightCount; i++)
     weights[i] = _default_weight;
-  
+    
   for (int j; j < INPUT_LAYER_SIZE; j++)
   {
     pinMode(_inputDriverPins[j], OUTPUT);
     digitalWrite(_inputDriverPins[j], HIGH);
   }
   
-  SPI.begin();
   pinMode(CHIP_SELECT_PIN, OUTPUT);
-  digitalWrite(CHIP_SELECT_PIN, HIGH);
+  SPI.begin();
+
+  pinMode(INPUT_LATCH_PIN, OUTPUT);
+  INPUT_SPI.begin();
 
 #ifdef DEBUG
   // Initialize serial communication for debugging output.
@@ -155,7 +165,7 @@ void receiveCommand(int byteCount)
     }
     else if (command == SET_INPUTS_CMD)
     {
-      receiveInputs(byteCount-1);
+      receiveInputsForShiftRegister(byteCount-1);
     }
   }
 
@@ -193,6 +203,43 @@ void receiveWeights(int byteCount)
 #endif
 
   setDigitalPots(MLP->weights, MLP->weightCount);
+}
+
+void receiveInputsForShiftRegister(int byteCount)
+{
+  byte data;
+
+  DEBUG_PRINTLN("");
+  DEBUG_PRINT("Received ");
+  DEBUG_PRINT(byteCount);
+  DEBUG_PRINT(byteCount == 1 ? " byte. Sending input data: " : " bytes. Sending input data: ");
+  
+
+  for (int i = 0; i < byteCount && Wire.available(); i++)
+  {
+    data = Wire.read() ^ 0xFF;
+    
+    digitalWrite(INPUT_LATCH_PIN, LOW);
+    INPUT_SPI.beginTransaction(SPISettings(SPI_CLOCK_RATE, LSBFIRST, SPI_MODE0));
+    INPUT_SPI.transfer(data);
+    INPUT_SPI.endTransaction();
+    digitalWrite(INPUT_LATCH_PIN, HIGH);
+    
+#ifdef DEBUG
+    byte mask = 0x80;
+    for (int j = 0; j < 8; j++)
+    {
+      DEBUG_PRINT((data & mask) != 0 ? "1 " : "0 ");
+      mask >>= 1;      
+    }
+#endif
+  }
+
+  //TODO Adjust or remove this delay once pulldown/pullup resistor values are finalized.
+//  delayMicroseconds(100);
+  
+  DEBUG_PRINTLN("");
+
 }
 
 void receiveInputs(int byteCount)
