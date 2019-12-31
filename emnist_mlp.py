@@ -8,6 +8,7 @@ import numpy as np
 import os
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
+from handwritten_samples import handwritten_samples
 
 
 parser = argparse.ArgumentParser(
@@ -27,6 +28,8 @@ _args = parser.parse_args()
 
 _validation_iterations = 2000
 _validation_tick_interval = 1
+
+_learning_rate = 0.0005
 _max_weight = 10.0
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
@@ -38,8 +41,8 @@ def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
     fig = plt.figure()
     for i in range(len(X_train)):
         two_d = (np.reshape(X_train[i], (width, width)) * 255).astype(np.uint8)
-        two_d = np.rot90(two_d, 3)
-        two_d = np.fliplr(two_d)
+        # two_d = np.rot90(two_d, 3)
+        # two_d = np.fliplr(two_d)
         plt.subplot(samples_per_column,len(X_train)/samples_per_column,i+1)
         plt.tight_layout()
         plt.imshow(two_d, cmap='gray', interpolation='none')
@@ -73,7 +76,7 @@ class NeuronLayer():
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
 
-        self.synaptic_weights += adjustments
+        self.synaptic_weights += adjustments * _learning_rate
         abs_weights = np.abs(self.synaptic_weights)
         if (abs_weights > max_weight).any():
             self.synaptic_weights *= _max_weight / (abs_weights).max()
@@ -82,14 +85,20 @@ class NeuralNetwork():
     def __init__(self, neuron_layers):
         self.neuron_layers = neuron_layers
 
-    def activation_function(self, x):
-        return self.sigmoid(x)
+        self.activation_function = self.sigmoid
+        self.activation_derivative = self.sigmoid_derivative
 
-    def activation_derivative(self, x):
-        return self.sigmoid_derivative(x)
+        self.activation_function = self.tanh
+        self.activation_derivative = self.tanh_derivative
+
+    def tanh(self, x):
+        return np.tanh(x)
+    
+    def tanh_derivative(self, x):
+        return 1.0 - np.tanh(x)**2
 
     def relu_derivative(self, x):
-        return 0.5 * (x > 30)
+        return x > 30
     
     def sigmoid(self, x):
         if _args.noisy_activation == True:
@@ -213,7 +222,7 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
     #Seed the random number generator
-    random.seed(1)
+    random.seed(3)
 
 
     # Data image width (in pixels)
@@ -280,17 +289,20 @@ if __name__ == "__main__":
                 j += 1
             n += 1
 
-
     # sample_size = 25
     # sample_inputs = validation_set_inputs[0:sample_size]
     # sample_labels = [data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
     # sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
     # sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
 
-
-    
+    sample_size = len(handwritten_samples)
+    sample_inputs = handwritten_samples
+    sample_labels = ['F', 'F', 'C', 'C', 'U', 'U'] #[data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
+    sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
+    sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
 
     print(sample_outputs)
 
     if _args.plot:
+        plot_accuracy(accuracy_by_epoch)
         plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
