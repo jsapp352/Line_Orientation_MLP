@@ -2,60 +2,37 @@
 # source: https://medium.com/technology-invention-and-more/how-to-build-a-multi-layered-neural-network-in-python-53ec3d1d326a
 
 import argparse
-from datetime import datetime
 import emnist_loader
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import pickle
-import handwritten_samples
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Train a multi-layer perceptron to detect handwritten characters.',
-        allow_abbrev=True)
 
-    parser.add_argument('epochs', type=int,
-                        help='number of training epochs')
-    parser.add_argument('training_batch_size', type=int, nargs='?', default=10000,
-                        help='specify a maximum data-set size for training batch')
-    parser.add_argument('-plot', action='store_true',
-                        help='show a plot of the accuracy data by epoch')
-    parser.add_argument('-noisy_activation', action='store_true',
-                        help='add simulated noise to the activation function')
+parser = argparse.ArgumentParser(
+    description='Train a multi-layer perceptron to detect handwritten characters.',
+    allow_abbrev=True)
 
-    _args = parser.parse_args()
+parser.add_argument('epochs', type=int,
+                    help='number of training epochs')
+parser.add_argument('training_batch_size', type=int, nargs='?', default=10000,
+                    help='specify a maximum data-set size for training batch')
+parser.add_argument('-plot', action='store_true',
+                    help='show a plot of the accuracy data by epoch')
+parser.add_argument('-noisy_activation', action='store_true',
+                    help='add simulated noise to the activation function')
+
+_args = parser.parse_args()
 
 _validation_iterations = 2000
 _validation_tick_interval = 1
-
-_learning_rate = 0.0005
 _max_weight = 10.0
-
-_data_char_set = ['U', 'C', 'F']
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
 # Standard deviation for activation noise
 _standard_deviation = 0.45
-
-_saved_network_path = os.path.join(os.getcwd(), 'saved_emnist_mlp_networks')
-def serialize_neural_network(neural_network):
-    datachars = ''.join(data_char_set)
-    filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.pickle')
-
-    with open(filename, 'wb') as f:
-        pickle.dump(neural_network, f, pickle.HIGHEST_PROTOCOL)
-
-def deserialize_neural_network(filename):
-    neural_network = None
-
-    with open(os.path.join(_saved_network_path, filename), 'rb') as f:
-        neural_network = pickle.load(f)
-    
-    return neural_network
 
 def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
     fig = plt.figure()
@@ -63,17 +40,12 @@ def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
         two_d = (np.reshape(X_train[i], (width, width)) * 255).astype(np.uint8)
         two_d = np.rot90(two_d, 3)
         two_d = np.fliplr(two_d)
-        plt.subplot(samples_per_row,len(X_train)/samples_per_row,i+1)
+        plt.subplot(samples_per_column,len(X_train)/samples_per_column,i+1)
         plt.tight_layout()
         plt.imshow(two_d, cmap='gray', interpolation='none')
-
-        if y_labels != None:
-            title_color = 'black' if y_labels[i] == y_train[i] else 'red'
-            title_weight = 'normal'if y_labels[i] == y_train[i] else 'bold'
-            plt.title(f"{y_labels[i]} -> {y_train[i]}", c=title_color, fontweight=title_weight)
-        else:
-            plt.title(f"{y_train[i]}", c='black', fontweight='normal')
-        
+        title_color = 'black' if y_labels[i] == y_train[i] else 'red'
+        title_weight = 'normal'if y_labels[i] == y_train[i] else 'bold'
+        plt.title(f"{y_labels[i]} -> {y_train[i]}", c=title_color, fontweight=title_weight)
         plt.xticks([])
         plt.yticks([])
     plt.show()
@@ -101,7 +73,7 @@ class NeuronLayer():
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
 
-        self.synaptic_weights += adjustments * _learning_rate
+        self.synaptic_weights += adjustments
         abs_weights = np.abs(self.synaptic_weights)
         if (abs_weights > max_weight).any():
             self.synaptic_weights *= _max_weight / (abs_weights).max()
@@ -110,21 +82,14 @@ class NeuralNetwork():
     def __init__(self, neuron_layers):
         self.neuron_layers = neuron_layers
 
-        self.activation_function = self.sigmoid
-        self.activation_derivative = self.sigmoid_derivative
+    def activation_function(self, x):
+        return self.sigmoid(x)
 
-        self.activation_function = self.tanh
-        self.activation_derivative = self.tanh_derivative
-        self.data_char_set = _data_char_set
-
-    def tanh(self, x):
-        return np.tanh(x)
-    
-    def tanh_derivative(self, x):
-        return 1.0 - np.tanh(x)**2
+    def activation_derivative(self, x):
+        return self.sigmoid_derivative(x)
 
     def relu_derivative(self, x):
-        return x > 30
+        return 0.5 * (x > 30)
     
     def sigmoid(self, x):
         if _args.noisy_activation == True:
@@ -248,17 +213,17 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
     #Seed the random number generator
-    random.seed(5)
+    random.seed(1)
 
 
     # Data image width (in pixels)
     width = 10
 
     # Characters used in data set
-    data_char_set = _data_char_set
+    data_char_set = ['U','C','F']
 
     # Neuron count for each hidden layer
-    hidden_layer_sizes = [3]
+    hidden_layer_sizes = [1]
 
 
     # Create neuron layers (M neurons, each with N inputs)
@@ -276,6 +241,8 @@ if __name__ == "__main__":
     neural_network.print_weights()
 
     # Binarize data set.
+    # training_set_inputs = training_set_inputs / 255.0 
+    # validation_set_inputs = validation_set_inputs / 255.0 
     training_set_inputs = neural_network.relu_derivative(training_set_inputs)
     validation_set_inputs = neural_network.relu_derivative(validation_set_inputs)
 
@@ -295,7 +262,7 @@ if __name__ == "__main__":
 
     print("Stage 3) Validation:")
 
-    samples_per_column = 6
+    samples_per_column = 1
     sample_indices = []
     sample_inputs = []
     sample_labels = []
@@ -314,9 +281,7 @@ if __name__ == "__main__":
                 sample_preds.append(data_char_set[np.argmax(sample_outputs[-1])])
                 j += 1
             n += 1
-    
-    for idx in range(0, len(sample_inputs[0]), width):
-        print(sample_inputs[0][idx:(idx+width)])
+
 
     # sample_size = 25
     # sample_inputs = validation_set_inputs[0:sample_size]
@@ -324,27 +289,10 @@ if __name__ == "__main__":
     # sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
     # sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
 
-    pprint(sample_outputs)
 
-    for idx in range(0, len(sample_inputs[0]), width):
-        print(sample_inputs[0][idx:(idx+width)])
+    
+
+    print(sample_outputs)
 
     if _args.plot:
-        plot_accuracy(accuracy_by_epoch)
         plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
-    
-    input_prompt = 'Get handwritten samples from photo? '
-    console_input = input(input_prompt)
-    while console_input[0].lower() == 'y':
-        handwritten_chars = handwritten_samples.get_images()
-        sample_size = len(handwritten_chars)
-        sample_inputs = [np.array(x) for x in handwritten_chars]
-        # [data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
-        sample_labels = None
-        sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
-        sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
-        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, 3)
-
-        console_input = input(input_prompt)
-    
-    serialize_neural_network(neural_network)
