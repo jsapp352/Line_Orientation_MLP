@@ -43,7 +43,7 @@ _validation_tick_interval = 2
 
 _max_weight = 1.0
 # _learning_rate = 0.04
-_learning_rate = 0.01
+_learning_rate = 0.08
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -151,8 +151,17 @@ class NeuralNetwork():
 
         self.activation_function = self.tanh
         self.activation_derivative = self.tanh_derivative
+
+        # self.activation_function = self.piecewise
+        # self.activation_derivative = self.piecewise_derivative
         
         self.ckt = MLP_Circuit(self)
+
+    def piecewise(self, x):
+        return (x < -1.2) * -1 + (x >= -1.2) * (x <= 1.2) * 0.75 * x + (x > 1.2) * 1
+
+    def piecewise_derivative(self, x):
+        return (x > -1.2) * (x < 1.2) * 0.7
     
     def tanh(self, x):
         return np.tanh(x)
@@ -596,7 +605,7 @@ if __name__ == "__main__":
     hidden_layer_sizes = [4]
 
     minimum_accuracy = 100.0
-    minimum_output_difference = 0.5
+    minimum_output_difference = 1.5
 
     accuracy_by_epoch = [[1], [0.0]]
 
@@ -634,6 +643,7 @@ if __name__ == "__main__":
         print(f'{accuracy_by_epoch[0][-1]}: {accuracy_by_epoch[1][-1]}')
 
         if accuracy_by_epoch[1][-1] >= minimum_accuracy and output_difference >= minimum_output_difference:
+            print(f'Last value of random number generation seed: {seed}')
             break
 
     print("Stage 2) New synaptic weights after training: ")

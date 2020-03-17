@@ -65,7 +65,13 @@ class MLPLink:
         # Initialize output list to make a do-while-type loop in the I2C read section.
         outputs = [max_adc + 1]
 
-        self.send_data(self.commands['read_outputs'], [])
+        success = False
+        while not success:
+            try:
+                self.send_data(self.commands['read_outputs'], [])
+                success = True
+            except:
+                success = False
 
         #DEBUG
         # return [0] * output_count
@@ -73,9 +79,20 @@ class MLPLink:
         sleep(0.01)
 
         with SMBus(1) as bus:
-            while any([x > max_adc for x in outputs]):
-                bus.i2c_rdwr(read)
+            success = False
+
+            while not success or any([x > max_adc for x in outputs]):
+                try:
+                    bus.i2c_rdwr(read)
+                    success = True
+                except:
+                    success = False
+                    continue
+
                 outputs = [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
+                print(*read.buf[0:12])
+
+        sleep(0.01)
 
 #        print(outputs)
 
@@ -103,3 +120,12 @@ class MLPLink:
         
             sleep(0.01)
 
+
+def main():
+    link = MLPLink([3,3], [100,3])
+
+    while True:
+        link.read_outputs()
+
+if __name__ == '__main__':
+    main()
