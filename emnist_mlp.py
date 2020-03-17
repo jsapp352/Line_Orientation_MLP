@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pickle
-import handwritten_samples
+# import handwritten_samples
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
@@ -333,18 +333,18 @@ if __name__ == "__main__":
         plot_accuracy(accuracy_by_epoch)
         plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
     
-    input_prompt = 'Get handwritten samples from photo? '
-    console_input = input(input_prompt)
-    while console_input[0].lower() == 'y':
-        handwritten_chars = handwritten_samples.get_images()
-        sample_size = len(handwritten_chars)
-        sample_inputs = [np.array(x) for x in handwritten_chars]
-        # [data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
-        sample_labels = None
-        sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
-        sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
-        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, 3)
+    # input_prompt = 'Get handwritten samples from photo? '
+    # console_input = input(input_prompt)
+    # while console_input[0].lower() == 'y':
+    #     handwritten_chars = handwritten_samples.get_images()
+    #     sample_size = len(handwritten_chars)
+    #     sample_inputs = [np.array(x) for x in handwritten_chars]
+    #     # [data_char_set[x] for x in np.argmax(validation_set_outputs[0:sample_size],axis=1)]
+    #     sample_labels = None
+    #     sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
+    #     sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
+    #     plot_data_samples(sample_inputs, sample_labels, sample_preds, width, 3)
 
-        console_input = input(input_prompt)
+    #     console_input = input(input_prompt)
     
     serialize_neural_network(neural_network)
