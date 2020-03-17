@@ -17,7 +17,7 @@ class MLPLink:
             "set_inputs": 3,
             "read_outputs": 4
             }
-        
+
         self.mcu_addr = _mcu_addr
         self.neurons_per_layer = neurons_per_layer
         self.inputs_per_layer = inputs_per_layer
@@ -34,18 +34,18 @@ class MLPLink:
             for i in range(len(layer_weights[0])):
                 for j in range(len(layer_weights)):
                     data.append(layer_weights[j][i])
-            
+
         #print(f'Flattened weights: {data}')
-        
+
         data.insert(0, self.commands['set_weights'])
 
         #print(f'Sending weights {data}\n')
 
         msg  = i2c_msg.write(self.mcu_addr, data)
-        
+
         with SMBus(1) as bus:
             bus.i2c_rdwr(msg)
-    
+
     def set_inputs(self, inputs):
 
         #print(f'I2CMLP.set_inputs() inputs: {inputs}')
