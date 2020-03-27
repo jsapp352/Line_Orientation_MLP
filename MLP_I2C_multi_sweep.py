@@ -51,7 +51,7 @@ class MLPLink:
                 bus.write_byte(self.mcu_addr, weight)
     
     def read_outputs(self):
-        adc_resolution_bits = 13
+        adc_resolution_bits = 16
 
         max_adc = 2 << adc_resolution_bits
 
@@ -81,7 +81,7 @@ class MLPLink:
         #print(f'Sending {weights}')
 
     def read_outputs_i2c(self):
-        adc_resolution_bits = 13
+        adc_resolution_bits = 16
         max_adc = 2 << adc_resolution_bits
 
         output_count = sum(self.neurons_per_layer)
@@ -100,7 +100,7 @@ class MLPLink:
         return outputs
     
 def main():
-    link = MLPLink(4, 1, [4], [4])
+    link = MLPLink(4, 1, [3], [100])
 #    link = MLPLink(4, 2, [4,1], [4,4])
 
     neuron_names = []
@@ -115,7 +115,7 @@ def main():
 
     for h in range(reps_count):
         start_idx = 0
-        weights = [ [ [0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0] ], [ [0,0,0,0] ] ]
+        weights = [ [ [[0] * 100] * 3  ], [ [0,0,0] ] ]
         for i in range(link.layer_count):
             end_idx = start_idx + link.neurons_per_layer[i]
             input_val = 0

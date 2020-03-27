@@ -135,7 +135,7 @@ class NeuralNetwork():
     def sigmoid_derivative(self, x):
         return x * (1 - x)
 
-    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations):
+    def train(self, training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs, number_of_training_iterations, minimum_accuracy, minimum_output_difference):
         batch_size = _args.training_batch_size
         layers = self.neuron_layers
 
@@ -192,7 +192,7 @@ class NeuralNetwork():
 
             # Validate results
             if iteration % validation_tick_interval == 0:
-                accuracy = self.validate(
+                accuracy, output_difference = self.validate(
                     validation_set_inputs,
                     validation_set_outputs,
                     validation_data_indices
@@ -201,23 +201,42 @@ class NeuralNetwork():
                 accuracy_by_epoch[0].append(iteration)
                 accuracy_by_epoch[1].append(accuracy)
 
-            print(f'Epoch {iteration}: {accuracy}')
+                if accuracy >= minimum_accuracy and output_difference >= minimum_output_difference:
+                    return accuracy_by_epoch, output_difference
+            
+            print(f'Epoch {iteration}: {accuracy:3.5}, minimum difference: {output_difference:2.5}')
+        
+        return accuracy_by_epoch, output_difference
 
-        return accuracy_by_epoch
 
     def validate(self, test_inputs, test_outputs, indices):
+        
+        validate_by_software_model = False
+        # validate_by_software_model = _validate_by_software_model
+
         correct_predictions = 0
 
-        for index in indices:
-            outputs = neural_network.think(array(test_inputs[index]))
+        minimum_output_difference = float('inf')
 
-            prediction = np.argmax([outputs[-1]],axis=1)[0]
+        for index in indices:
+            if validate_by_software_model:
+                outputs = self.software_think(array([test_inputs[index]]))
+            else:
+                outputs = self.think(array([test_inputs[index]]))
+            # print([outputs[-1]])
+            # probabilities = softmax([outputs[-1]])
+            prediction = np.argmax(outputs[-1],axis=1)[0]
+
+            # print(f"{prediction}: {test_outputs[index]}")
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
+                pred_output = outputs[-1][0][prediction]
+                minimum_output_difference = min(minimum_output_difference, min([abs(x - pred_output) for i,x in enumerate(outputs[-1][0]) if i!=prediction]))
 
-        return correct_predictions / len(indices) * 100.0
+        # print(f'Training accuracy: {correct_predictions / len(indices) * 100.0}')
 
+        return correct_predictions / len(indices) * 100.0, minimum_output_difference
 
     # The neural network thinks.
     def think(self, inputs):
@@ -260,33 +279,51 @@ if __name__ == "__main__":
     # Neuron count for each hidden layer
     hidden_layer_sizes = [3]
 
-
-    # Create neuron layers (M neurons, each with N inputs)
-    #  (M for layer x must equal N for layer x+1)
-    layer_dimensions = zip(hidden_layer_sizes + [len(data_char_set)], [width**2] + hidden_layer_sizes)
-    neuron_layers = [ NeuronLayer(y, x) for y, x in layer_dimensions]
- 
-    # Combine the layers to create a neural network
-    neural_network = NeuralNetwork(neuron_layers)
-
     # Load data sets and create prediction labels
     training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
 
-    print("Stage 1) Random starting synaptic weights: ")
-    neural_network.print_weights()
-
     # Binarize data set.
-    training_set_inputs = neural_network.relu_derivative(training_set_inputs)
-    validation_set_inputs = neural_network.relu_derivative(validation_set_inputs)
+    threshold = 30
+    training_set_inputs = training_set_inputs > threshold
+    validation_set_inputs = validation_set_inputs > threshold
 
-    # Train the neural network for a specified number of epochs using the training set.
-    accuracy_by_epoch = neural_network.train(
-        training_set_inputs,
-        training_set_outputs,
-        validation_set_inputs,
-        validation_set_outputs,
-        _args.epochs
-    )
+    minimum_accuracy = 90.0
+    minimum_output_difference = 0.01
+    starting_seed = 3
+
+    accuracy_by_epoch = [[1], [0.0]]
+
+    for seed in range(starting_seed, starting_seed+100):
+
+        random.seed(seed)
+
+        # Create neuron layers (M neurons, each with N inputs)
+        #  (M for layer x must equal N for layer x+1)
+        layer_dimensions = zip(hidden_layer_sizes + [len(data_char_set)], [width**2] + hidden_layer_sizes)
+        neuron_layers = [ NeuronLayer(y, x) for y, x in layer_dimensions]
+    
+        # Combine the layers to create a neural network
+        neural_network = NeuralNetwork(neuron_layers)
+
+        print("Stage 1) Random starting synaptic weights: ")
+        neural_network.print_weights()
+
+        # Train the neural network for a specified number of epochs using the training set.
+        accuracy_by_epoch, output_difference = neural_network.train(
+            training_set_inputs,
+            training_set_outputs,
+            validation_set_inputs,
+            validation_set_outputs,
+            _args.epochs,
+            minimum_accuracy,
+            minimum_output_difference
+        )
+
+        print(f'{accuracy_by_epoch[0][-1]}: {accuracy_by_epoch[1][-1]}')
+
+        if accuracy_by_epoch[1][-1] >= minimum_accuracy and output_difference >= minimum_output_difference:
+            print(f'Last value of random number generation seed: {seed}')
+            break
 
     print("Stage 2) Train the network: ")
 
@@ -331,7 +368,7 @@ if __name__ == "__main__":
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)
-        plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
+        # plot_data_samples(sample_inputs, sample_labels, sample_preds, width, samples_per_column)
     
     # input_prompt = 'Get handwritten samples from photo? '
     # console_input = input(input_prompt)

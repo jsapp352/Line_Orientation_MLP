@@ -5,7 +5,7 @@ from time import sleep
 from smbus2 import SMBus, i2c_msg
 
 _mcu_addr = 4
-_adc_bit_resolution = 13
+_adc_bit_resolution = 16
 
 class MLPLink:
     def __init__(self, neurons_per_layer, inputs_per_layer):

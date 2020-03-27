@@ -17,7 +17,7 @@ import numpy as np
 _saved_image_file = 'saved_drawing.gif'
 _processed_image_file = 'processed_drawing.gif'
 
-_neural_network_file = 'emnist_mlp_UCF_2020_03_14_16_03_12.pickle'
+_neural_network_file = 'emnist_mlp_UCF_2020_03_22_23_49_31.pickle'
 
 class TacocatUI(object):
     DEFAULT_COLOR = 'black'
@@ -31,8 +31,8 @@ class TacocatUI(object):
         self.ok_button = Button(self.root, text='OK', command=self.process_image)
         self.ok_button.grid(row=1, column=1)
 
-        self.width = 300
-        self.height = 300
+        self.width = 350
+        self.height = 350
         self.drawing_canvas = Canvas(self.root, bg='white', width=self.width, height=self.height)
         self.drawing_canvas.grid(row=0, column=0, columnspan=2)
 
