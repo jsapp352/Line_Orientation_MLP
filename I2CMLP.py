@@ -1,4 +1,3 @@
-import itertools
 import numpy as np
 from time import sleep
 
@@ -16,9 +15,10 @@ class MLPLink:
             "initialize": 1,
             "set_weights": 2,
             "set_inputs": 3,
-            "read_outputs": 5
+            "read_outputs": 5,
+            "read_db_sums": 6,
             }
-
+        
         self.mcu_addr = _mcu_addr
         self.neurons_per_layer = neurons_per_layer
         self.inputs_per_layer = inputs_per_layer
@@ -35,14 +35,24 @@ class MLPLink:
             for i in range(len(layer_weights[0])):
                 for j in range(len(layer_weights)):
                     data.append(layer_weights[j][i])
-
+            
         #print(f'Flattened weights: {data}')
 
         #print(f'Sending weights {data}\n')
 
         command = self.commands['set_weights']
 
-        self.send_data(command, data)
+        success = False
+        while not success:
+            try:
+                self.send_data(command, data)
+                success = True
+            except:
+                # sleep(1)
+                success = True
+                pass
+        
+        sleep(0.05)
     
     def set_inputs(self, inputs):
 
@@ -52,7 +62,15 @@ class MLPLink:
 
         command = self.commands['set_inputs']
 
-        self.send_data(command, packed_inputs)
+        success = False
+        while not success:
+            try:
+                self.send_data(command, packed_inputs)
+                success = True
+            except:
+                pass
+        
+        sleep(0.005)
 
     def read_outputs(self):
 
@@ -60,46 +78,80 @@ class MLPLink:
 
         output_count = 6 #sum(self.neurons_per_layer)
 
-        read  = i2c_msg.read(self.mcu_addr, output_count*2)
+        read  = i2c_msg.read(self.mcu_addr, output_count*2+1)
 
-        # Initialize output list to make a do-while-type loop in the I2C read section.
-        outputs = [max_adc + 1]
+        success = False
+        while not success:
+            try:
+                self.send_data(self.commands['read_outputs'], [])
 
-        self.send_data(self.commands['read_outputs'], [])
+                sleep(.005)
 
-        #DEBUG
-        # return [0] * output_count
+                with SMBus(1) as bus:
+                    bus.i2c_rdwr(read)
 
-        sleep(0.01)
+                success = True
 
-        with SMBus(1) as bus:
-            while any([x > max_adc for x in outputs]):
-                bus.i2c_rdwr(read)
-                outputs = [int.from_bytes(read.buf[i*2:i*2+2], byteorder='little') for i in range(output_count)]
+            except Exception as ex:
+                # print(f'failed read_output command rx {ex}')
+                
+                # sleep(0.001)
+                # success = False
+                success = True
 
-#        print(outputs)
+        outputs = [int.from_bytes(read.buf[1:(output_count*2+1)][i*2:i*2+2], byteorder='little') for i in range(output_count)]
+        # print(*read.buf[1:13])
+                
+        # print(outputs)
 
-        return [0] * 7  
+        # sleep(0.0001)
+
+
         return outputs
-    
+
+    def read_daughterboard_sums(self):
+
+            max_adc = self.max_adc
+
+            output_count = 3 #sum(self.neurons_per_layer)
+
+            read  = i2c_msg.read(self.mcu_addr, output_count*2+1)
+            
+            try:
+                self.send_data(self.commands['read_db_sums'], [])
+
+                sleep(.005)
+
+                with SMBus(1) as bus:
+                    bus.i2c_rdwr(read)
+
+            except Exception as ex:
+                pass
+
+            outputs = [int.from_bytes(read.buf[1:(output_count*2+1)][i*2:i*2+2], byteorder='little') for i in range(output_count)]
+            # print(*read.buf[1:13])
+                    
+            # print(outputs)
+
+            # sleep(0.0001)
+
+            return outputs
+        
     def send_data(self, command, payload):
         data = [command, (len(payload) & 0x00FF), ((len(payload) & 0xFF00) >> 8)]
 
-        # print(data)
+        # print(data) 
 
         msg = i2c_msg.write(self.mcu_addr, data)
 
         with SMBus(1) as bus:
             bus.i2c_rdwr(msg)
-        
-        sleep(.0005)
 
-        if len(data) > 0:
+        if len(payload) > 0:
 
             msg = i2c_msg.write(self.mcu_addr, payload)
 
             with SMBus(1) as bus:
                 bus.i2c_rdwr(msg)
         
-            sleep(0.01)
-
+            # sleep(0.0001)

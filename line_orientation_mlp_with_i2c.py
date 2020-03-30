@@ -82,7 +82,7 @@ def plot_activation(inputs, outputs):
     plt.show()
 
 def activation_test():
-    input_count = 4
+    input_count = 100
     neuron_layers = [NeuronLayer(4,4), NeuronLayer(3,4)]
     neural_network = NeuralNetwork(neuron_layers)
 

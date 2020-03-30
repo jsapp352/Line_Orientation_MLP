@@ -1,4 +1,3 @@
-#import itertools
 import numpy as np
 from time import sleep
 
@@ -70,7 +69,7 @@ class MLPLink:
             except:
                 pass
         
-        sleep(0.5)
+        sleep(0.01)
 
     def read_outputs(self):
 
@@ -140,7 +139,7 @@ def main():
             link.set_inputs(inputs)
             weights = [[[i] * 100] * 3, [[255-i] * 3]*3]
             link.set_weights(weights)
-            sleep(0.5)
+            # sleep(0.5)
 
             link.read_outputs()
 

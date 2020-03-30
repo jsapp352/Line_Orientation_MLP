@@ -4,6 +4,7 @@
 import argparse
 from datetime import datetime
 import emnist_loader
+from hardwareMLP import MLP_Circuit
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -11,6 +12,23 @@ import pickle
 # import handwritten_samples
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
+
+_validation_iterations = 100
+_validation_tick_interval = 1
+
+_learning_rate = 0.01
+_max_weight = 10.0
+
+_data_char_set = ['U', 'C', 'F']
+
+_emnist_path = os.path.join(os.getcwd(), 'emnist_data')
+
+# Standard deviation for activation noise
+_standard_deviation = 0.45
+
+_saved_network_path = os.path.join(os.getcwd(), 'saved_emnist_mlp_networks')
+
+_use_software_model = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -25,23 +43,13 @@ if __name__ == '__main__':
                         help='show a plot of the accuracy data by epoch')
     parser.add_argument('-noisy_activation', action='store_true',
                         help='add simulated noise to the activation function')
+    parser.add_argument('-software_model', action='store_true',
+                    help='use a software-based neural network model (no SPICE simulation)')
 
     _args = parser.parse_args()
 
-_validation_iterations = 2000
-_validation_tick_interval = 1
+    _use_software_model = _args.software_model
 
-_learning_rate = 0.0005
-_max_weight = 10.0
-
-_data_char_set = ['U', 'C', 'F']
-
-_emnist_path = os.path.join(os.getcwd(), 'emnist_data')
-
-# Standard deviation for activation noise
-_standard_deviation = 0.45
-
-_saved_network_path = os.path.join(os.getcwd(), 'saved_emnist_mlp_networks')
 def serialize_neural_network(neural_network):
     datachars = ''.join(data_char_set)
     filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.pickle')
@@ -96,7 +104,11 @@ class NeuronLayer():
         self.inputs_per_neuron = number_of_inputs_per_neuron
         self.max_weight = _max_weight
 
-        self.synaptic_weights = (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / self.max_weight
+        self.set_random_starting_weights()
+        # self.synaptic_weights = 2 * (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / self.max_weight
+
+    def set_random_starting_weights(self):
+        self.synaptic_weights = random.normal(size=(self.inputs_per_neuron, self.neuron_count), scale=(self.inputs_per_neuron**-0.5))
 
     def adjust_weights(self, adjustments):
         max_weight = self.max_weight
@@ -110,12 +122,12 @@ class NeuralNetwork():
     def __init__(self, neuron_layers):
         self.neuron_layers = neuron_layers
 
-        self.activation_function = self.sigmoid
-        self.activation_derivative = self.sigmoid_derivative
-
         self.activation_function = self.tanh
         self.activation_derivative = self.tanh_derivative
+
         self.data_char_set = _data_char_set
+        
+        self.ckt = MLP_Circuit(self)
 
     def tanh(self, x):
         return np.tanh(x)
@@ -222,7 +234,7 @@ class NeuralNetwork():
             if validate_by_software_model:
                 outputs = self.software_think(array([test_inputs[index]]))
             else:
-                outputs = self.think(array([test_inputs[index]]))
+                outputs = self.think(array([test_inputs[index]]), False)
             # print([outputs[-1]])
             # probabilities = softmax([outputs[-1]])
             prediction = np.argmax(outputs[-1],axis=1)[0]
@@ -238,8 +250,49 @@ class NeuralNetwork():
 
         return correct_predictions / len(indices) * 100.0, minimum_output_difference
 
+    def think(self, inputs, update_weights=True):
+        use_software_model = _use_software_model
+        if use_software_model:
+            return self.software_think(inputs)
+        else:
+            # hwt = self.hardware_think(inputs, update_weights)
+            # print('Hardware think():')
+            # pprint(hwt)
+
+            # swt = self.software_think(inputs)
+            # print('Software think():')
+            # pprint(swt)
+
+            # print('Error')
+            # pprint([hwt[i]-swt[i] for i in range(len(hwt))])
+            # print('\n')
+            # return hwt
+
+            return self.hardware_think(inputs, update_weights)
+
+    def hardware_think(self, inputs, update_weights=True):
+        # print('Think() inputs:')
+        # pprint(inputs)
+        # print('\n')
+        # print('Think() inputs.tolist():')
+        # pprint(inputs.tolist())
+        # print('\n')
+
+        if update_weights:
+            self.ckt.update_synaptic_weights()
+        
+        output_tensors = [[] for i in range(0, len(self.neuron_layers))]
+        
+        for input in inputs:
+            network_output = self.ckt.think(input)
+
+            for idx,output_tensor in enumerate(network_output):
+                output_tensors[idx].append(output_tensor)
+
+        return [np.asarray(x) for x in output_tensors]
+
     # The neural network thinks.
-    def think(self, inputs):
+    def software_think(self, inputs):
         layers = self.neuron_layers
 
         input_tensors = []
@@ -253,6 +306,9 @@ class NeuralNetwork():
             output_tensors.append(output)
             input_tensors.append(output)
 
+
+        # print('Old think():')
+        # pprint(output_tensors)
 
         return output_tensors
 
@@ -280,16 +336,25 @@ if __name__ == "__main__":
     hidden_layer_sizes = [3]
 
     # Load data sets and create prediction labels
-    training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
+    try:
+        with open('emnist_data_serialized.pickle', 'rb') as f:
+            training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = pickle.load(f)
+    except:
+        training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
+
+        all_input_data = (training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs)
+
+        with open('emnist_data_serialized.pickle', 'wb') as f:
+            pickle.dump(all_input_data, f, pickle.HIGHEST_PROTOCOL)
 
     # Binarize data set.
     threshold = 30
     training_set_inputs = training_set_inputs > threshold
     validation_set_inputs = validation_set_inputs > threshold
 
-    minimum_accuracy = 90.0
-    minimum_output_difference = 0.01
-    starting_seed = 3
+    minimum_accuracy = 80.0
+    minimum_output_difference = 0.001
+    starting_seed = 1
 
     accuracy_by_epoch = [[1], [0.0]]
 
