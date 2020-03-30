@@ -13,10 +13,10 @@ import pickle
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-_validation_iterations = 100
+_validation_iterations = 200
 _validation_tick_interval = 1
 
-_learning_rate = 0.01
+_learning_rate = 0.02
 _max_weight = 10.0
 
 _data_char_set = ['U', 'C', 'F']
@@ -336,15 +336,16 @@ if __name__ == "__main__":
     hidden_layer_sizes = [3]
 
     # Load data sets and create prediction labels
+    data_chars = ''.join(data_char_set)
     try:
-        with open('emnist_data_serialized.pickle', 'rb') as f:
+        with open(f'emnist_data_serialized{data_chars}.pickle', 'rb') as f:
             training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = pickle.load(f)
     except:
         training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
 
         all_input_data = (training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs)
 
-        with open('emnist_data_serialized.pickle', 'wb') as f:
+        with open(f'emnist_data_serialized{data_chars}.pickle', 'wb') as f:
             pickle.dump(all_input_data, f, pickle.HIGHEST_PROTOCOL)
 
     # Binarize data set.
@@ -352,9 +353,9 @@ if __name__ == "__main__":
     training_set_inputs = training_set_inputs > threshold
     validation_set_inputs = validation_set_inputs > threshold
 
-    minimum_accuracy = 80.0
-    minimum_output_difference = 0.001
-    starting_seed = 1
+    minimum_accuracy = 91.0
+    minimum_output_difference = 0.01
+    starting_seed = 7
 
     accuracy_by_epoch = [[1], [0.0]]
 
@@ -403,22 +404,24 @@ if __name__ == "__main__":
     sample_labels = []
     sample_outputs = []
     sample_preds = []
+
+    validation_data = neural_network.validate(validation_set_inputs, validation_set_outputs, [x for x in range(len(validation_set_inputs))])
+    print(validation_data)
+    # n = 258
+    # for i in range(samples_per_column):
+    #     j = 0
+    #     while j < min(len(data_char_set), len(validation_set_outputs)):
+    #         if np.argmax(validation_set_outputs[n]) == j:
+    #             sample_indices.append(n)
+    #             sample_inputs.append(validation_set_inputs[n])
+    #             sample_labels.append(data_char_set[j])
+    #             sample_outputs.append(neural_network.think(sample_inputs[-1])[-1])
+    #             sample_preds.append(data_char_set[np.argmax(sample_outputs[-1][-1])])
+    #             j += 1
+    #         n += 1
     
-    n = 258
-    for i in range(samples_per_column):
-        j = 0
-        while j < min(len(data_char_set), len(validation_set_outputs)):
-            if np.argmax(validation_set_outputs[n]) == j:
-                sample_indices.append(n)
-                sample_inputs.append(validation_set_inputs[n])
-                sample_labels.append(data_char_set[j])
-                sample_outputs.append(neural_network.think(sample_inputs[-1])[-1])
-                sample_preds.append(data_char_set[np.argmax(sample_outputs[-1])])
-                j += 1
-            n += 1
-    
-    for idx in range(0, len(sample_inputs[0]), width):
-        print(sample_inputs[0][idx:(idx+width)])
+    # for idx in range(0, len(sample_inputs[0]), width):
+    #     print(sample_inputs[0][idx:(idx+width)])
 
     # sample_size = 25
     # sample_inputs = validation_set_inputs[0:sample_size]
@@ -426,10 +429,10 @@ if __name__ == "__main__":
     # sample_outputs = [neural_network.think(x)[-1] for x in sample_inputs]
     # sample_preds = [data_char_set[x] for x in np.argmax(sample_outputs, axis=1)]
 
-    pprint(sample_outputs)
+    # pprint(sample_outputs)
 
-    for idx in range(0, len(sample_inputs[0]), width):
-        print(sample_inputs[0][idx:(idx+width)])
+    # for idx in range(0, len(sample_inputs[0]), width):
+    #     print(sample_inputs[0][idx:(idx+width)])
 
     if _args.plot:
         plot_accuracy(accuracy_by_epoch)

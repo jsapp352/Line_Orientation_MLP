@@ -17,7 +17,7 @@ import numpy as np
 _saved_image_file = 'saved_drawing.gif'
 _processed_image_file = 'processed_drawing.gif'
 
-_neural_network_file = 'emnist_mlp_UCF_2020_03_22_23_49_31.pickle'
+_neural_network_file = 'emnist_mlp_CAT_2020_03_29_22_31_16.pickle'
 
 class TacocatUI(object):
     DEFAULT_COLOR = 'black'
