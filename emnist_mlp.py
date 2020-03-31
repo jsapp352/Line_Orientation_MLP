@@ -13,18 +13,18 @@ import pickle
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-_validation_iterations = 200
+_validation_iterations = 300
 _validation_tick_interval = 1
 
 _learning_rate = 0.02
 _max_weight = 10.0
 
-_minimum_accuracy = 88.0
-_minimum_output_difference = 0.005
+_minimum_accuracy = 91.0
+_minimum_output_difference = 0.001
 
-_starting_seed = 7
+_starting_seed = 3
 
-_data_char_set = ['I', 'J', 'K']
+_data_char_set = ['A', 'B', 'C']
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -97,7 +97,7 @@ def plot_accuracy(accuracy_by_epoch):
 
     noise_label = f' (activation noise standard dev. {_standard_deviation})' if _args.noisy_activation else ''
     batch_size_label = f'training batch size {_args.training_batch_size}'
-    plt.title(f'Prediction Accuracy by Training Epoch\n{noise_label}\n{batch_size_label}')
+    plt.title(f'Prediction Accuracy by Training Batch\n{noise_label}\n{batch_size_label}')
 
     plt.xlabel('Training Batch')
     plt.ylabel('Accuracy (%)')
@@ -379,6 +379,8 @@ if __name__ == "__main__":
         print("Stage 1) Random starting synaptic weights: ")
         neural_network.print_weights()
 
+        print("Stage 2) Train the network: ")
+
         # Train the neural network for a specified number of epochs using the training set.
         accuracy_by_epoch, output_difference = neural_network.train(
             training_set_inputs,
@@ -395,11 +397,6 @@ if __name__ == "__main__":
         if accuracy_by_epoch[1][-1] >= minimum_accuracy and output_difference >= minimum_output_difference:
             print(f'Last value of random number generation seed: {seed}')
             break
-
-    print("Stage 2) Train the network: ")
-
-    # if _args.plot:
-    #     plot_accuracy(accuracy_by_epoch)
 
     print("Stage 3) Validation:")
 

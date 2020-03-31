@@ -31,7 +31,7 @@ def main():
 
     output_lists = [[], [], []]
 
-    weights = [[[0] * 100] * 3, [[127] * 3] * 3]
+    weights = [[[255] * 100] * 3, [[127] * 3] * 3]
 
     link.set_weights(weights)
 
@@ -39,7 +39,7 @@ def main():
 
     for h in range(reps_count):
         start_idx = 0
-        active_input_width = 20
+        active_input_width = 10
         while (start_idx + active_input_width <= 100):
             
             for i in range(active_input_width):

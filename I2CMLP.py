@@ -52,7 +52,7 @@ class MLPLink:
                 success = True
                 pass
         
-        sleep(0.05)
+        sleep(0.005)
     
     def set_inputs(self, inputs):
 
@@ -70,7 +70,7 @@ class MLPLink:
             except:
                 pass
         
-        sleep(0.005)
+        sleep(0.0001)
 
     def read_outputs(self):
 
@@ -85,7 +85,7 @@ class MLPLink:
             try:
                 self.send_data(self.commands['read_outputs'], [])
 
-                sleep(.005)
+                sleep(.0001)
 
                 with SMBus(1) as bus:
                     bus.i2c_rdwr(read)
@@ -120,7 +120,7 @@ class MLPLink:
             try:
                 self.send_data(self.commands['read_db_sums'], [])
 
-                sleep(.005)
+                sleep(.01)
 
                 with SMBus(1) as bus:
                     bus.i2c_rdwr(read)

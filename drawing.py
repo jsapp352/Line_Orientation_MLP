@@ -6,6 +6,7 @@ Created on Fri Mar 30 21:49:12 2018
 @author: kaustabh
 """
 
+from tkinter import filedialog
 from tkinter import *
 from PIL import Image, ImageDraw
 
@@ -17,7 +18,7 @@ import numpy as np
 _saved_image_file = 'saved_drawing.gif'
 _processed_image_file = 'processed_drawing.gif'
 
-_neural_network_file = 'emnist_mlp_CAT_2020_03_29_22_31_16.pickle'
+_neural_network_file = 'emnist_mlp_UCF_2020_03_31_01_08_25.pickle'
 
 class TacocatUI(object):
     DEFAULT_COLOR = 'black'
@@ -27,39 +28,36 @@ class TacocatUI(object):
         w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         self.root.geometry(f'{w}x{h}+0+0')
         self.root.title("TACOCAT")
-        self.root.config(cursor='none')
+        # self.root.config(cursor='none')
+
+        self.network_button = Button(self.root, text='Change Network', command=self.open_network_file)
+        self.network_button.grid(row=1, column=0, padx=10, pady=10)
 
         self.clear_button = Button(self.root, text='Clear', command=self.clear)
-        self.clear_button.grid(row=1, column=0, padx=10, pady=10)
+        self.clear_button.grid(row=1, column=1, padx=10, pady=10)
 
         self.ok_button = Button(self.root, text='OK', command=self.process_image, padx=15, pady=5)
-        self.ok_button.grid(row=1, column=1, padx=10, pady=10)
+        self.ok_button.grid(row=1, column=2, padx=10, pady=10)
 
         self.width = 350
         self.height = 350
         self.drawing_canvas = Canvas(self.root, bg='white', width=self.width, height=self.height)
-        self.drawing_canvas.grid(row=0, column=0, columnspan=2, padx=20, pady=10)
+        self.drawing_canvas.grid(row=0, column=0, columnspan=3, padx=20, pady=10)
 
         self.tacocat_canvas = Canvas(self.root, bg='white', width=self.width, height=self.height)
-        self.tacocat_canvas.grid(row=0, column=2, padx=20, pady=10)
+        self.tacocat_canvas.grid(row=0, column=3, padx=20, pady=10)
 
         self.prediction_text = StringVar()
         self.prediction_label = Label(self.root, textvariable=self.prediction_text)
-        self.prediction_label.grid(row=1, column=2, padx=10, pady=10)
+        self.prediction_label.grid(row=1, column=3, padx=10, pady=10)
 
         self.placeholder_label = None
 
         self.image = Image.new("RGB", (self.width, self.height), 'white')
         self.draw = ImageDraw.Draw(self.image)
 
-        self.neural_network = self.initialize_network()
-
-
         self.setup()
         self.root.mainloop()
-
-    def initialize_network(self):
-        return emnist_mlp.deserialize_neural_network(_neural_network_file)
 
     def setup(self):
         self.clear_on_next_paint = False
@@ -71,6 +69,16 @@ class TacocatUI(object):
         self.drawing_canvas.bind('<B1-Motion>', self.paint)
         self.drawing_canvas.bind('<ButtonRelease-1>', self.reset)
 
+        self.neural_network_file = _neural_network_file        
+        self.neural_network = self.initialize_network()
+
+    def initialize_network(self):
+        return emnist_mlp.deserialize_neural_network(self.neural_network_file)
+
+    def open_network_file(self):
+        self.neural_network_file = filedialog.askopenfilename(initialdir = "./saved_emnist_mlp_networks/",title = "Select file")
+        self.neural_network = self.initialize_network()
+        
     def clear(self):
         self.drawing_canvas.delete('all')
         self.tacocat_canvas.delete('all')
@@ -88,6 +96,7 @@ class TacocatUI(object):
         if self.clear_on_next_paint:
             self.clear()
             self.clear_on_next_paint = False
+            return
 
         if self.old_x and self.old_y:
             self.drawing_canvas.create_line(self.old_x, self.old_y, event.x, event.y,
