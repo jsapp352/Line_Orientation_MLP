@@ -24,24 +24,28 @@ class TacocatUI(object):
 
     def __init__(self):
         self.root = Tk()
+        w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        self.root.geometry(f'{w}x{h}+0+0')
+        self.root.title("TACOCAT")
+        self.root.config(cursor='none')
 
         self.clear_button = Button(self.root, text='Clear', command=self.clear)
-        self.clear_button.grid(row=1, column=0)
+        self.clear_button.grid(row=1, column=0, padx=10, pady=10)
 
-        self.ok_button = Button(self.root, text='OK', command=self.process_image)
-        self.ok_button.grid(row=1, column=1)
+        self.ok_button = Button(self.root, text='OK', command=self.process_image, padx=15, pady=5)
+        self.ok_button.grid(row=1, column=1, padx=10, pady=10)
 
         self.width = 350
         self.height = 350
         self.drawing_canvas = Canvas(self.root, bg='white', width=self.width, height=self.height)
-        self.drawing_canvas.grid(row=0, column=0, columnspan=2)
+        self.drawing_canvas.grid(row=0, column=0, columnspan=2, padx=20, pady=10)
 
         self.tacocat_canvas = Canvas(self.root, bg='white', width=self.width, height=self.height)
-        self.tacocat_canvas.grid(row=0, column=2)
+        self.tacocat_canvas.grid(row=0, column=2, padx=20, pady=10)
 
         self.prediction_text = StringVar()
         self.prediction_label = Label(self.root, textvariable=self.prediction_text)
-        self.prediction_label.grid(row=1, column=2)
+        self.prediction_label.grid(row=1, column=2, padx=10, pady=10)
 
         self.placeholder_label = None
 
@@ -58,6 +62,7 @@ class TacocatUI(object):
         return emnist_mlp.deserialize_neural_network(_neural_network_file)
 
     def setup(self):
+        self.clear_on_next_paint = False
         self.old_x = None
         self.old_y = None
         self.line_width = 12
@@ -80,6 +85,10 @@ class TacocatUI(object):
         self.active_button = some_button
 
     def paint(self, event):
+        if self.clear_on_next_paint:
+            self.clear()
+            self.clear_on_next_paint = False
+
         if self.old_x and self.old_y:
             self.drawing_canvas.create_line(self.old_x, self.old_y, event.x, event.y,
                                width=self.line_width, fill=self.color,
@@ -101,9 +110,12 @@ class TacocatUI(object):
 
         prediction_result = self.neural_network.think([img_arr.T.flatten()])[-1]
 
+        # Reset network inputs to reduce power consumption.
+        self.neural_network.think([np.zeros((100,), dtype=int)])
+
         self.prediction_text.set(f'TACOCAT prediction: {self.neural_network.data_char_set[np.argmax(prediction_result)]}')
 
-        resized_image = Image.fromarray(img_arr).resize((300, 300))
+        resized_image = Image.fromarray(img_arr).resize((self.width, self.height))
         resized_image.save(_processed_image_file)
 
         tacocat_result = PhotoImage(file=_processed_image_file)
@@ -111,6 +123,8 @@ class TacocatUI(object):
         self.placeholder_label.image = tacocat_result
 
         self.tacocat_canvas.create_image(0, 0, anchor=NW, image=tacocat_result)
+
+        self.clear_on_next_paint = True
 
     def reset(self, event):
         self.old_x, self.old_y = None, None

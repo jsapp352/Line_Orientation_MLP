@@ -19,7 +19,12 @@ _validation_tick_interval = 1
 _learning_rate = 0.02
 _max_weight = 10.0
 
-_data_char_set = ['U', 'C', 'F']
+_minimum_accuracy = 88.0
+_minimum_output_difference = 0.005
+
+_starting_seed = 7
+
+_data_char_set = ['I', 'J', 'K']
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
@@ -353,9 +358,9 @@ if __name__ == "__main__":
     training_set_inputs = training_set_inputs > threshold
     validation_set_inputs = validation_set_inputs > threshold
 
-    minimum_accuracy = 91.0
-    minimum_output_difference = 0.01
-    starting_seed = 7
+    minimum_accuracy = _minimum_accuracy
+    minimum_output_difference = _minimum_output_difference
+    starting_seed = _starting_seed
 
     accuracy_by_epoch = [[1], [0.0]]
 

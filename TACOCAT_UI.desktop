@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Terminal=false
+Exec=python3 drawing.py
+Name=TACOCAT UI
+Path=/home/pi/Documents/Hardware_EMNIST_MLP/
+StartupNotify=true
