@@ -31,12 +31,15 @@ class MLPLink:
 
         data = []
 
+        # print(f'0riginal weights: {weights}')
+
         for layer_weights in weights:
             for i in range(len(layer_weights[0])):
                 for j in range(len(layer_weights)):
                     data.append(layer_weights[j][i])
             
-        #print(f'Flattened weights: {data}')
+        # print(f'Flattened weights: {data}')
+        # input()
 
         #print(f'Sending weights {data}\n')
 
@@ -113,7 +116,7 @@ class MLPLink:
 
             max_adc = self.max_adc
 
-            output_count = 3 #sum(self.neurons_per_layer)
+            output_count = 3
 
             read  = i2c_msg.read(self.mcu_addr, output_count*2+1)
             

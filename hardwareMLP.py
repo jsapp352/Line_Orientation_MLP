@@ -18,6 +18,10 @@ class MLP_Circuit():
         self.neural_network = neural_network
 
         self.input_sources = []
+    
+    def reset_network(self):
+        self.link.set_inputs([0]*100)
+        self.link.set_weights([[[0]*309]])
 
     def calculate_layer_weights(self, layer):
         calculate_pos = lambda weight: min(_pot_tap_count-1, max(1, int((weight / layer.max_weight + 1) / 2 * _pot_tap_count / 2 + 64)))

@@ -87,6 +87,9 @@ class TacocatUI(object):
         self.image = Image.new("RGB", (self.width, self.height), 'white')
         self.draw = ImageDraw.Draw(self.image)
 
+        # Reset network inputs to reduce power consumption.
+        self.neural_network.think([np.zeros((100,), dtype=int)])
+
     def activate_button(self, some_button):
         self.active_button.config(relief=RAISED)
         some_button.config(relief=SUNKEN)
@@ -118,9 +121,6 @@ class TacocatUI(object):
         print(img_arr)
 
         prediction_result = self.neural_network.think([img_arr.T.flatten()])[-1]
-
-        # Reset network inputs to reduce power consumption.
-        self.neural_network.think([np.zeros((100,), dtype=int)])
 
         self.prediction_text.set(f'TACOCAT prediction: {self.neural_network.data_char_set[np.argmax(prediction_result)]}')
 

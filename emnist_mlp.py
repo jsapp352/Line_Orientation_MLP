@@ -13,27 +13,30 @@ import pickle
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-_validation_iterations = 300
+_validation_iterations = 1000
 _validation_tick_interval = 1
 
-_learning_rate = 0.02
+_learning_rate = 0.1
+# _learning_rate = 0.005
 _max_weight = 10.0
 
-_minimum_accuracy = 91.0
-_minimum_output_difference = 0.001
+_minimum_accuracy = 93.0
+_minimum_output_difference = 0.0
 
 _starting_seed = 3
 
-_data_char_set = ['A', 'B', 'C']
+_data_char_set = ['U', 'C', 'F']
 
 _emnist_path = os.path.join(os.getcwd(), 'emnist_data')
 
 # Standard deviation for activation noise
-_standard_deviation = 0.45
+_standard_deviation = 0.15
 
 _saved_network_path = os.path.join(os.getcwd(), 'saved_emnist_mlp_networks')
 
 _use_software_model = False
+
+_use_hardware_validation = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -50,14 +53,20 @@ if __name__ == '__main__':
                         help='add simulated noise to the activation function')
     parser.add_argument('-software_model', action='store_true',
                     help='use a software-based neural network model (no SPICE simulation)')
+    parser.add_argument('-hardware_validation', action='store_true',
+                        help='use the hardware neural network for validation, regardless of model used for training')
 
     _args = parser.parse_args()
 
     _use_software_model = _args.software_model
 
-def serialize_neural_network(neural_network):
+    _use_hardware_validation = _args.hardware_validation
+
+
+def serialize_neural_network(neural_network, final_accuracy):
     datachars = ''.join(data_char_set)
-    filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.pickle')
+    accuracy_string = f'{int((final_accuracy - int(final_accuracy)*100))}'
+    filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}_{accuracy_string}.pickle')
 
     with open(filename, 'wb') as f:
         pickle.dump(neural_network, f, pickle.HIGHEST_PROTOCOL)
@@ -92,12 +101,13 @@ def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
     plt.show()
 
 def plot_accuracy(accuracy_by_epoch):
+    char_set = _data_char_set
     epoch, accuracy = accuracy_by_epoch
     plt.plot(epoch, accuracy)
 
-    noise_label = f' (activation noise standard dev. {_standard_deviation})' if _args.noisy_activation else ''
-    batch_size_label = f'training batch size {_args.training_batch_size}'
-    plt.title(f'Prediction Accuracy by Training Batch\n{noise_label}\n{batch_size_label}')
+    noise_label = f' (Activation noise standard dev.: {_standard_deviation})' if _args.noisy_activation else ''
+    batch_size_label = f'Training batch size: {_args.training_batch_size}'
+    plt.title(f'Prediction Accuracy by Training Batch\nData set: {char_set}\n{batch_size_label}')
 
     plt.xlabel('Training Batch')
     plt.ylabel('Accuracy (%)')
@@ -134,11 +144,14 @@ class NeuralNetwork():
         
         self.ckt = MLP_Circuit(self)
 
+        self.think = self.software_think if _use_software_model else self.hardware_think
+
     def tanh(self, x):
-        return np.tanh(x)
+        return np.tanh((x - 0.0005) / 10 )
     
     def tanh_derivative(self, x):
-        return 1.0 - np.tanh(x)**2
+        # return 1.0 - np.tanh(x)**2
+        return 1 / (5 * (np.cosh(0.0001 - 0.2 * x) + 1))
 
     def relu_derivative(self, x):
         return x > 30
@@ -260,18 +273,18 @@ class NeuralNetwork():
         if use_software_model:
             return self.software_think(inputs)
         else:
-            # hwt = self.hardware_think(inputs, update_weights)
-            # print('Hardware think():')
-            # pprint(hwt)
+            hwt = self.hardware_think(inputs, update_weights)
+            print('Hardware think():')
+            pprint(hwt)
 
-            # swt = self.software_think(inputs)
-            # print('Software think():')
-            # pprint(swt)
+            swt = self.software_think(inputs)
+            print('Software think():')
+            pprint(swt)
 
-            # print('Error')
-            # pprint([hwt[i]-swt[i] for i in range(len(hwt))])
-            # print('\n')
-            # return hwt
+            print('Error')
+            pprint([hwt[i]-swt[i] for i in range(len(hwt))])
+            print('\n')
+            return hwt
 
             return self.hardware_think(inputs, update_weights)
 
@@ -297,7 +310,7 @@ class NeuralNetwork():
         return [np.asarray(x) for x in output_tensors]
 
     # The neural network thinks.
-    def software_think(self, inputs):
+    def software_think(self, inputs, _ = True):
         layers = self.neuron_layers
 
         input_tensors = []
@@ -407,8 +420,15 @@ if __name__ == "__main__":
     sample_outputs = []
     sample_preds = []
 
-    validation_data = neural_network.validate(validation_set_inputs, validation_set_outputs, [x for x in range(len(validation_set_inputs))])
-    print(validation_data)
+    if _use_hardware_validation:
+        neural_network
+        neural_network.think = neural_network.hardware_think
+        neural_network.ckt.update_synaptic_weights()
+    
+    final_accuracy, final_min_difference = neural_network.validate(validation_set_inputs, validation_set_outputs, [x for x in range(len(validation_set_inputs))])
+    print(f'Accuracy: {final_accuracy}%')
+    print(f'Minimum difference: {final_min_difference}')
+    print('')
     # n = 258
     # for i in range(samples_per_column):
     #     j = 0
@@ -454,4 +474,9 @@ if __name__ == "__main__":
 
     #     console_input = input(input_prompt)
     
-    serialize_neural_network(neural_network)
+    serialize_neural_network(neural_network, final_accuracy)
+
+    try:
+        neural_network.ckt.reset_network()
+    except:
+        print('Couldn\'t reset network.')

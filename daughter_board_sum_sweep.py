@@ -15,8 +15,8 @@ def plot_activation(input_list, output_lists, neuron_names):
 
     # plt.plot(input_list[0:1024], ideal_sigmoid)
 
-    plt.title('Daughterboard output vs. weight (all inputs at max value)')
-    plt.xlabel('Byte value of weight')
+    plt.title('Daughterboard output vs. input activation (all weights at max value)')
+    plt.xlabel('Input Activation (swept in successive groups)')
     plt.ylabel('ADC output reading')
     plt.legend(neuron_names)
 
@@ -39,7 +39,7 @@ def main():
 
     for h in range(reps_count):
         start_idx = 0
-        active_input_width = 10
+        active_input_width = 50
         while (start_idx + active_input_width <= 100):
             
             for i in range(active_input_width):
