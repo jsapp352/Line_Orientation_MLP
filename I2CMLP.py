@@ -45,15 +45,11 @@ class MLPLink:
 
         command = self.commands['set_weights']
 
-        success = False
-        while not success:
-            try:
-                self.send_data(command, data)
-                success = True
-            except:
-                # sleep(1)
-                success = True
-                pass
+        try:
+            self.send_data(command, data)
+            success = True
+        except:
+            pass
         
         sleep(0.005)
     
@@ -73,7 +69,7 @@ class MLPLink:
             except:
                 pass
         
-        sleep(0.0001)
+        # sleep(0.0000133)
 
     def read_outputs(self):
 
@@ -83,24 +79,16 @@ class MLPLink:
 
         read  = i2c_msg.read(self.mcu_addr, output_count*2+1)
 
-        success = False
-        while not success:
-            try:
-                self.send_data(self.commands['read_outputs'], [])
+        try:
+            self.send_data(self.commands['read_outputs'], [])
 
-                sleep(.0001)
+            # sleep(.0001) # Removed 4/5/20 after moving output read call in STM32 firmware
 
-                with SMBus(1) as bus:
-                    bus.i2c_rdwr(read)
+            with SMBus(1) as bus:
+                bus.i2c_rdwr(read)
 
-                success = True
-
-            except Exception as ex:
-                # print(f'failed read_output command rx {ex}')
-                
-                # sleep(0.001)
-                # success = False
-                success = True
+        except Exception as ex:
+            pass
 
         outputs = [int.from_bytes(read.buf[1:(output_count*2+1)][i*2:i*2+2], byteorder='little') for i in range(output_count)]
         # print(*read.buf[1:13])

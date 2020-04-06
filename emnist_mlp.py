@@ -13,17 +13,17 @@ import pickle
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-_validation_iterations = 1000
+_validation_iterations = 2000
 _validation_tick_interval = 1
 
-_learning_rate = 0.1
+_learning_rate = 0.005
 # _learning_rate = 0.005
 _max_weight = 10.0
 
-_minimum_accuracy = 93.0
+_minimum_accuracy = 100.0
 _minimum_output_difference = 0.0
 
-_starting_seed = 3
+_starting_seed = 1
 
 _data_char_set = ['U', 'C', 'F']
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
 def serialize_neural_network(neural_network, final_accuracy):
     datachars = ''.join(data_char_set)
-    accuracy_string = f'{int((final_accuracy - int(final_accuracy)*100))}'
+    accuracy_string = f'{int(final_accuracy)}p{int((final_accuracy - int(final_accuracy))*100)}'
     filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}_{accuracy_string}.pickle')
 
     with open(filename, 'wb') as f:
@@ -120,7 +120,6 @@ class NeuronLayer():
         self.max_weight = _max_weight
 
         self.set_random_starting_weights()
-        # self.synaptic_weights = 2 * (2 * random.random((number_of_inputs_per_neuron, number_of_neurons)) - 1) / self.max_weight
 
     def set_random_starting_weights(self):
         self.synaptic_weights = random.normal(size=(self.inputs_per_neuron, self.neuron_count), scale=(self.inputs_per_neuron**-0.5))
@@ -177,64 +176,88 @@ class NeuralNetwork():
 
         last_layer_idx = len(layers) - 1
 
-        for iteration in range(number_of_training_iterations):
+        def create_batches(ls):
+            batches = []
+            batch_range_end = int(len(ls) / batch_size) + 1
+            for i in range(batch_range_end):
+                batch = []
+                
+                # print(f'range({i*batch_size}, {min((i+1)*batch_size, len(ls))})')
+                for j in range(i*batch_size, min((i+1)*batch_size, len(ls))):
+                    # print(ls[j])
+                    batch.append(ls[j])
+                # print(f'ls[{i*batch_size} : {i*(batch_size+1)}]: {ls[i*batch_size : i*(batch_size+1)]}')
+                batches.append(array(batch))
+                # print(f'len(batches[{i}]): {len(batches[i])}')
+
+            
+            return array(batches)
+
+        for epoch in range(number_of_training_iterations):
             # Shuffle the training set
             data_set_size = training_set_inputs.shape[0]
-            indices = np.random.permutation(data_set_size)[0:batch_size]
-            # print(indices)
-            training_set_inputs = training_set_inputs[indices]
-            training_set_outputs = training_set_outputs[indices]
+            indices = np.random.permutation(data_set_size)
 
-            # Pass the training set through the neural network.
-            output_from_layers = self.think(training_set_inputs)
+            batch_indices = create_batches(indices)
 
-            deltas = {}
-            errors = {}
 
-            # We have to calculate the last layer's error value first.
-            last_layer = layers[last_layer_idx]
-            last_layer_output = output_from_layers[last_layer_idx]
-            errors[last_layer] = training_set_outputs - last_layer_output
-            deltas[last_layer] = errors[last_layer] * self.activation_derivative(last_layer_output)
+            for batch_number in range(len(batch_indices)):
+                # Pass the training set through the neural network.
+                training_inputs = training_set_inputs[batch_indices[batch_number]]
+                training_outputs = training_set_outputs[batch_indices[batch_number]]
 
-            # Then we can loop through the rest of the layers in descending order
-            #   and calculate their values.
-            for i in range(last_layer_idx - 1, -1, -1):
-                layer = layers[i]
-                output = output_from_layers[i]
+                # print(training_inputs)
+                # print(training_outputs)
 
-                next_layer = layers[i+1]
+                output_from_layers = self.think(training_inputs)
 
-                errors[layer] = deltas[next_layer].dot(next_layer.synaptic_weights.T)
-                deltas[layer] = errors[layer] * self.activation_derivative(output)
+                deltas = {}
+                errors = {}
 
-            # Calculate how much to adjust the weights by
-            adjustments = {}
+                # We have to calculate the last layer's error value first.
+                last_layer = layers[last_layer_idx]
+                last_layer_output = output_from_layers[last_layer_idx]
+                errors[last_layer] = training_outputs - last_layer_output
+                deltas[last_layer] = errors[last_layer] * self.activation_derivative(last_layer_output)
 
-            adjustments[layers[0]] = training_set_inputs.T.dot(deltas[layers[0]])
+                # Then we can loop through the rest of the layers in descending order
+                #   and calculate their values.
+                for i in range(last_layer_idx - 1, -1, -1):
+                    layer = layers[i]
+                    output = output_from_layers[i]
 
-            for i in range (1, len(layers)):
-                adjustments[layers[i]] = output_from_layers[i-1].T.dot(deltas[layers[i]])
+                    next_layer = layers[i+1]
 
-            # Adjust the weights.
-            for layer in layers:
-                layer.adjust_weights(adjustments[layer])
+                    errors[layer] = deltas[next_layer].dot(next_layer.synaptic_weights.T)
+                    deltas[layer] = errors[layer] * self.activation_derivative(output)
+
+                # Calculate how much to adjust the weights by
+                adjustments = {}
+
+                adjustments[layers[0]] = training_inputs.T.dot(deltas[layers[0]])
+
+                for i in range (1, len(layers)):
+                    adjustments[layers[i]] = output_from_layers[i-1].T.dot(deltas[layers[i]])
+
+                # Adjust the weights.
+                for layer in layers:
+                    layer.adjust_weights(adjustments[layer])
 
             # Validate results
-            if iteration % validation_tick_interval == 0:
+            if epoch % validation_tick_interval == 0:
                 accuracy, output_difference = self.validate(
                     validation_set_inputs,
                     validation_set_outputs,
                     validation_data_indices
                 )
 
-                accuracy_by_epoch[0].append(iteration)
+                accuracy_by_epoch[0].append(epoch)
                 accuracy_by_epoch[1].append(accuracy)
 
                 if accuracy >= minimum_accuracy and output_difference >= minimum_output_difference:
                     return accuracy_by_epoch, output_difference
             
-            print(f'Epoch {iteration}: {accuracy:3.5}, minimum difference: {output_difference:2.5}')
+            print(f'Epoch {epoch}: {accuracy:3.5}, minimum difference: {output_difference:2.5}')
         
         return accuracy_by_epoch, output_difference
 
@@ -377,7 +400,7 @@ if __name__ == "__main__":
 
     accuracy_by_epoch = [[1], [0.0]]
 
-    for seed in range(starting_seed, starting_seed+100):
+    for seed in range(starting_seed, starting_seed+1):
 
         random.seed(seed)
 
