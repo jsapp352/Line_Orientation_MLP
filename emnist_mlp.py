@@ -1,5 +1,30 @@
-# Adapted from code by Milo Spencer-Harper
-# source: https://medium.com/technology-invention-and-more/how-to-build-a-multi-layered-neural-network-in-python-53ec3d1d326a
+# Decription: A neural network model for the recognition of handrwritten characters.
+# Author:     Justin Sapp
+# Date:       Spring 2020
+
+# Copyright (c) 2020 Justin Sapp
+
+# Adapted from code by Milo Spencer-Harper. Source: https://github.com/miloharper/multi-layer-neural-network .
+# Portions of this code were used under the terms of the license/copyright notice listed below:
+
+# The MIT License (MIT)
+
+# Copyright (c) 2015 Milo Spencer-Harper
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+# documentation files (the "Software"), to deal in the Software without restriction, including without 
+# limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of 
+# the Software, and to permit persons to whom the Software is furnished to do so, subject to the following 
+# conditions:
+
+# The above copyright notice and this permission notice shall be included in all copies or substantial 
+# portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT 
+# LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import argparse
 from datetime import datetime
@@ -13,17 +38,19 @@ import pickle
 from numpy import exp, array, random, dot, argmax
 from pprint import pprint
 
-_validation_iterations = 2000
+_validation_iterations = 5181
 _validation_tick_interval = 1
 
 _learning_rate = 0.005
 # _learning_rate = 0.005
+_second_learning_rate = 0.001
 _max_weight = 10.0
 
-_minimum_accuracy = 100.0
+_minimum_accuracy = 95.17
 _minimum_output_difference = 0.0
 
-_starting_seed = 1
+_starting_seed = 3
+_seed_iterations = 1
 
 _data_char_set = ['U', 'C', 'F']
 
@@ -37,6 +64,8 @@ _saved_network_path = os.path.join(os.getcwd(), 'saved_emnist_mlp_networks')
 _use_software_model = False
 
 _use_hardware_validation = False
+
+_hardware_faults = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -55,6 +84,8 @@ if __name__ == '__main__':
                     help='use a software-based neural network model (no SPICE simulation)')
     parser.add_argument('-hardware_validation', action='store_true',
                         help='use the hardware neural network for validation, regardless of model used for training')
+    parser.add_argument('-faults', action='store_true',
+                        help='simulate hardware faults')
 
     _args = parser.parse_args()
 
@@ -62,11 +93,16 @@ if __name__ == '__main__':
 
     _use_hardware_validation = _args.hardware_validation
 
+    if(_args.faults):
+        _hardware_faults = True
+        _fault_rate = 0.05
+
 
 def serialize_neural_network(neural_network, final_accuracy):
     datachars = ''.join(data_char_set)
     accuracy_string = f'{int(final_accuracy)}p{int((final_accuracy - int(final_accuracy))*100)}'
-    filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}_{accuracy_string}.pickle')
+    software_label = 'software_' if _use_software_model else ''
+    filename = os.path.join(_saved_network_path, f'emnist_mlp_{datachars}_{software_label}{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}_{accuracy_string}.pickle')
 
     with open(filename, 'wb') as f:
         pickle.dump(neural_network, f, pickle.HIGHEST_PROTOCOL)
@@ -107,9 +143,9 @@ def plot_accuracy(accuracy_by_epoch):
 
     noise_label = f' (Activation noise standard dev.: {_standard_deviation})' if _args.noisy_activation else ''
     batch_size_label = f'Training batch size: {_args.training_batch_size}'
-    plt.title(f'Prediction Accuracy by Training Batch\nData set: {char_set}\n{batch_size_label}')
+    plt.title(f'Prediction Accuracy by Training Epoch\nData set: {char_set}\n{batch_size_label}')
 
-    plt.xlabel('Training Batch')
+    plt.xlabel('Epoch')
     plt.ylabel('Accuracy (%)')
     plt.show()
 
@@ -120,6 +156,8 @@ class NeuronLayer():
         self.max_weight = _max_weight
 
         self.set_random_starting_weights()
+
+
 
     def set_random_starting_weights(self):
         self.synaptic_weights = random.normal(size=(self.inputs_per_neuron, self.neuron_count), scale=(self.inputs_per_neuron**-0.5))
@@ -144,6 +182,8 @@ class NeuralNetwork():
         self.ckt = MLP_Circuit(self)
 
         self.think = self.software_think if _use_software_model else self.hardware_think
+        self.accuracy_by_epoch = None
+        self.final_accuracy = None
 
     def tanh(self, x):
         return np.tanh((x - 0.0005) / 10 )
@@ -172,7 +212,8 @@ class NeuralNetwork():
 
         validation_iterations = _validation_iterations
         validation_tick_interval = _validation_tick_interval
-        validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
+        # validation_data_indices = [random.randint(0, len(validation_set_inputs)) for x in range(0, validation_iterations)]
+        validation_data_indices = [x for x in range(0, min(validation_iterations, len(validation_set_inputs)))]
 
         last_layer_idx = len(layers) - 1
 
@@ -242,6 +283,15 @@ class NeuralNetwork():
                 # Adjust the weights.
                 for layer in layers:
                     layer.adjust_weights(adjustments[layer])
+                
+                # if neural_network.fault_indices != None:
+                #     neural_network.weights[fault_indices] = -_max_weight
+                #     print(weights)
+                #     input()
+                # else:
+                #     print('wha happen?')
+                #     print(f'neural_network.fault_indices: {neural_network.fault_indices}')
+                #     input()
 
             # Validate results
             if epoch % validation_tick_interval == 0:
@@ -254,10 +304,31 @@ class NeuralNetwork():
                 accuracy_by_epoch[0].append(epoch)
                 accuracy_by_epoch[1].append(accuracy)
 
+                if accuracy > 94.0:
+                    _learning_rate = _second_learning_rate
+
                 if accuracy >= minimum_accuracy and output_difference >= minimum_output_difference:
-                    return accuracy_by_epoch, output_difference
+                    # If we met minimum accuracy, repeat the validation to make sure it wasn't a fluke.
+                    for _ in range(5):
+                        rep_accuracy, rep_output_difference = self.validate(
+                            validation_set_inputs,
+                            validation_set_outputs,
+                            validation_data_indices
+                        )
+                    
+                        accuracy = min(accuracy, rep_accuracy)
+
+                        if accuracy < minimum_accuracy:
+                            print('Repeated accuracy too low: ', accuracy)
+                            break
+
+
+                    if accuracy >= minimum_accuracy:
+                        return accuracy_by_epoch, output_difference
             
             print(f'Epoch {epoch}: {accuracy:3.5}, minimum difference: {output_difference:2.5}')
+
+        self.accuracy_by_epoch = accuracy_by_epoch
         
         return accuracy_by_epoch, output_difference
 
@@ -272,10 +343,14 @@ class NeuralNetwork():
         minimum_output_difference = float('inf')
 
         for index in indices:
-            if validate_by_software_model:
-                outputs = self.software_think(array([test_inputs[index]]))
-            else:
-                outputs = self.think(array([test_inputs[index]]), False)
+            # if validate_by_software_model:
+            #     outputs = self.software_think(array([test_inputs[index]]))
+            # else:
+            #     outputs = self.think(array([test_inputs[index]]), False)
+            
+            outputs = self.think(array([test_inputs[index]]), False)
+
+
             # print([outputs[-1]])
             # probabilities = softmax([outputs[-1]])
             prediction = np.argmax(outputs[-1],axis=1)[0]
@@ -284,32 +359,32 @@ class NeuralNetwork():
 
             if test_outputs[index][prediction] == 1:
                 correct_predictions += 1.0
-                pred_output = outputs[-1][0][prediction]
-                minimum_output_difference = min(minimum_output_difference, min([abs(x - pred_output) for i,x in enumerate(outputs[-1][0]) if i!=prediction]))
+                # pred_output = outputs[-1][0][prediction]
+                # minimum_output_difference = min(minimum_output_difference, min([abs(x - pred_output) for i,x in enumerate(outputs[-1][0]) if i!=prediction]))
 
         # print(f'Training accuracy: {correct_predictions / len(indices) * 100.0}')
 
         return correct_predictions / len(indices) * 100.0, minimum_output_difference
 
     def think(self, inputs, update_weights=True):
-        use_software_model = _use_software_model
-        if use_software_model:
-            return self.software_think(inputs)
-        else:
-            hwt = self.hardware_think(inputs, update_weights)
-            print('Hardware think():')
-            pprint(hwt)
+        # use_software_model = _use_software_model
+        # if use_software_model:
+        #     return self.software_think(inputs)
+        # else:
+        #     hwt = self.hardware_think(inputs, update_weights)
+        #     print('Hardware think():')
+        #     pprint(hwt)
 
-            swt = self.software_think(inputs)
-            print('Software think():')
-            pprint(swt)
+        #     swt = self.software_think(inputs)
+        #     print('Software think():')
+        #     pprint(swt)
 
-            print('Error')
-            pprint([hwt[i]-swt[i] for i in range(len(hwt))])
-            print('\n')
-            return hwt
+        #     print('Error')
+        #     pprint([hwt[i]-swt[i] for i in range(len(hwt))])
+        #     print('\n')
+        #     return hwt
 
-            return self.hardware_think(inputs, update_weights)
+        return self.hardware_think(inputs, update_weights)
 
     def hardware_think(self, inputs, update_weights=True):
         # print('Think() inputs:')
@@ -362,6 +437,22 @@ class NeuralNetwork():
             print(f"    Layer {i} ({layer.neuron_count} neurons, each with {layer.inputs_per_neuron} inputs): ")
             print(layer.synaptic_weights)
 
+def load_data(data_char_set):    
+    data_chars = ''.join(data_char_set)
+
+    try:
+        with open(f'emnist_data_serialized{data_chars}.pickle', 'rb') as f:
+            all_input_data = pickle.load(f)
+    except:
+        training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
+
+        all_input_data = (training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs)
+
+        with open(f'emnist_data_serialized{data_chars}.pickle', 'wb') as f:
+            pickle.dump(all_input_data, f, pickle.HIGHEST_PROTOCOL)
+    
+    return all_input_data
+
 if __name__ == "__main__":
     #Seed the random number generator
     random.seed(5)
@@ -377,17 +468,9 @@ if __name__ == "__main__":
     hidden_layer_sizes = [3]
 
     # Load data sets and create prediction labels
-    data_chars = ''.join(data_char_set)
-    try:
-        with open(f'emnist_data_serialized{data_chars}.pickle', 'rb') as f:
-            training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = pickle.load(f)
-    except:
-        training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = emnist_loader.load(_emnist_path, width, data_char_set)
-
-        all_input_data = (training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs)
-
-        with open(f'emnist_data_serialized{data_chars}.pickle', 'wb') as f:
-            pickle.dump(all_input_data, f, pickle.HIGHEST_PROTOCOL)
+    
+    all_input_data = load_data(data_char_set)
+    training_set_inputs, training_set_outputs, validation_set_inputs, validation_set_outputs = all_input_data
 
     # Binarize data set.
     threshold = 30
@@ -397,10 +480,11 @@ if __name__ == "__main__":
     minimum_accuracy = _minimum_accuracy
     minimum_output_difference = _minimum_output_difference
     starting_seed = _starting_seed
+    seed_iterations = _seed_iterations
 
     accuracy_by_epoch = [[1], [0.0]]
 
-    for seed in range(starting_seed, starting_seed+1):
+    for seed in range(starting_seed, starting_seed+seed_iterations):
 
         random.seed(seed)
 
@@ -416,6 +500,10 @@ if __name__ == "__main__":
         neural_network.print_weights()
 
         print("Stage 2) Train the network: ")
+        print('')
+        print(f'Dataset: {neural_network.data_char_set}')
+        print('')
+        print('')
 
         # Train the neural network for a specified number of epochs using the training set.
         accuracy_by_epoch, output_difference = neural_network.train(
@@ -442,13 +530,10 @@ if __name__ == "__main__":
     sample_labels = []
     sample_outputs = []
     sample_preds = []
-
-    if _use_hardware_validation:
-        neural_network
-        neural_network.think = neural_network.hardware_think
-        neural_network.ckt.update_synaptic_weights()
     
     final_accuracy, final_min_difference = neural_network.validate(validation_set_inputs, validation_set_outputs, [x for x in range(len(validation_set_inputs))])
+    neural_network.final_accuracy = final_accuracy
+
     print(f'Accuracy: {final_accuracy}%')
     print(f'Minimum difference: {final_min_difference}')
     print('')

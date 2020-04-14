@@ -1,3 +1,4 @@
+import atexit
 import numpy as np
 from time import sleep
 
@@ -26,6 +27,27 @@ class MLPLink:
 
         self.min_adc = 0.0
         self.max_adc = float(1 << _adc_bit_resolution) - 1.0
+
+        self.initialize_SMBus()
+        
+    def __getstate__(self):
+        return (self.neurons_per_layer, self.inputs_per_layer)
+
+    def __setstate__(self, state):
+        try:
+            self.__init__(state['neurons_per_layer'], state['inputs_per_layer'])
+        except:
+            self.__init__(state[0], state[1])
+    
+    def cleanup(self):
+        try:
+            self.bus.close()
+        except:
+            pass
+
+    def initialize_SMBus(self):
+        self.bus = SMBus(1)
+        atexit.register(self.cleanup)
 
     def set_weights(self, weights):
 
@@ -69,7 +91,7 @@ class MLPLink:
             except:
                 pass
         
-        # sleep(0.0000133)
+        sleep(0.000133)
 
     def read_outputs(self):
 
@@ -84,8 +106,10 @@ class MLPLink:
 
             # sleep(.0001) # Removed 4/5/20 after moving output read call in STM32 firmware
 
-            with SMBus(1) as bus:
-                bus.i2c_rdwr(read)
+            # with SMBus(1) as bus:
+            #     bus.i2c_rdwr(read)
+            
+            self.bus.i2c_rdwr(read)
 
         except Exception as ex:
             pass
@@ -111,10 +135,10 @@ class MLPLink:
             try:
                 self.send_data(self.commands['read_db_sums'], [])
 
-                sleep(.01)
+                # sleep(.0001)
 
-                with SMBus(1) as bus:
-                    bus.i2c_rdwr(read)
+                # with SMBus(1) as bus:
+                self.bus.i2c_rdwr(read)
 
             except Exception as ex:
                 pass
@@ -135,14 +159,14 @@ class MLPLink:
 
         msg = i2c_msg.write(self.mcu_addr, data)
 
-        with SMBus(1) as bus:
-            bus.i2c_rdwr(msg)
+        # with SMBus(1) as bus:
+        self.bus.i2c_rdwr(msg)
 
         if len(payload) > 0:
 
             msg = i2c_msg.write(self.mcu_addr, payload)
 
-            with SMBus(1) as bus:
-                bus.i2c_rdwr(msg)
+            # with SMBus(1) as bus:
+            self.bus.i2c_rdwr(msg)
         
             # sleep(0.0001)
