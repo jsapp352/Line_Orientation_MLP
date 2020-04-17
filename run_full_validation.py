@@ -1,6 +1,7 @@
 import emnist_mlp
 from emnist_mlp import NeuralNetwork, NeuronLayer
 from numpy import array
+from time import sleep
 import sys
 import timeit
 
@@ -37,6 +38,8 @@ if neural_network.ckt != None:
     print('')
     neural_network.ckt.update_synaptic_weights()
     
+sleep(0.05)
+
 print('')
 print('Validating network\'s prediction accuracy...')
 
@@ -47,6 +50,8 @@ runtime = timeit.timeit('run_validation()', globals=globals(), number=count) / c
 
 print('Validation completed.')
 print('')
+
+sleep(0.05)
 
 print('Running repeated single-image recognition calls to test latency...')
 
