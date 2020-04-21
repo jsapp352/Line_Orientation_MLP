@@ -128,9 +128,10 @@ def plot_data_samples(X_train, y_labels, y_train, width, samples_per_row):
         if y_labels != None:
             title_color = 'black' if y_labels[i] == y_train[i] else 'red'
             title_weight = 'normal'if y_labels[i] == y_train[i] else 'bold'
-            plt.title(f"{y_labels[i]} -> {y_train[i]}", c=title_color, fontweight=title_weight)
+            # plt.title(f"{y_labels[i]} -> {y_train[i]}", color=title_color, fontweight=title_weight)
+            plt.title(f"{y_train[i]}", color=title_color, fontweight=title_weight)
         else:
-            plt.title(f"{y_train[i]}", c='black', fontweight='normal')
+            plt.title(f"{y_train[i]}", color='black', fontweight='normal')
         
         plt.xticks([])
         plt.yticks([])
